@@ -1,0 +1,20 @@
+# env
+.env
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+.envrc
+
+# docker
+*.log
+
+# editor
+.vscode/
+.idea/
+
+# alembic (позже)
+alembic/versions/*.pyc

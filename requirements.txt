@@ -1,0 +1,8 @@
+aiogram==3.*
+SQLAlchemy==2.*
+asyncpg==0.*
+alembic==1.*
+pydantic==2.*
+pydantic-settings==2.*
+python-dotenv==1.*
+structlog==24.*

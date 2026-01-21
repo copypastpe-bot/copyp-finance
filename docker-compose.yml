@@ -1,0 +1,11 @@
+services:
+  finance-bot:
+    build: .
+    container_name: finance-bot
+    env_file:
+      - .env
+    restart: unless-stopped
+
+    # So container can reach Postgres installed on the host
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
