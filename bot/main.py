@@ -3,6 +3,8 @@ import os
 from aiogram import Bot, Dispatcher
 from aiogram.filters import Command
 from aiogram.types import Message
+from core.settings_app import app_settings
+token = app_settings.bot_token
 
 
 async def start_handler(message: Message) -> None:
