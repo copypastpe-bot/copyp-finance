@@ -21,10 +21,7 @@ target_metadata = Base.metadata
 
 
 def get_db_url() -> str:
-    return (
-        f"postgresql+asyncpg://{db_settings.db_user}:{db_settings.db_password}"
-        f"@{db_settings.db_host}:{db_settings.db_port}/{db_settings.db_name}"
-    )
+    return db_settings.get_async_database_url()
 
 
 def run_migrations_offline() -> None:
@@ -75,4 +72,3 @@ if context.is_offline_mode():
     run_migrations_offline()
 else:
     asyncio.run(run_migrations_online())
-

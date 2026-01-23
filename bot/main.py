@@ -1,25 +1,16 @@
 import asyncio
-import os
+
 from aiogram import Bot, Dispatcher
-from aiogram.filters import Command
-from aiogram.types import Message
+
+from bot.routers.start import router as start_router
 from core.settings_app import app_settings
-token = app_settings.bot_token
-
-
-async def start_handler(message: Message) -> None:
-    await message.answer("Бот запущен ✅")
 
 
 async def main() -> None:
-    token = os.getenv("BOT_TOKEN")
-    if not token:
-        raise RuntimeError("BOT_TOKEN is not set")
-
-    bot = Bot(token=token)
+    bot = Bot(token=app_settings.bot_token)
     dp = Dispatcher()
 
-    dp.message.register(start_handler, Command("start"))
+    dp.include_router(start_router)
 
     await dp.start_polling(bot)
 
