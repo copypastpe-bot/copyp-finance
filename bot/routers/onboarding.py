@@ -82,7 +82,11 @@ async def invite_budget_callback(
     )
     try:
         invite = await create_invite_for_owner(session, user.id)
-        bot_username = callback.bot.username or (await callback.bot.get_me()).username
+        bot_username = (await callback.bot.get_me()).username
+        if not bot_username:
+            await callback.message.answer("Не удалось получить имя бота. Попробуй позже.")
+            await _safe_callback_answer(callback)
+            return
         link = f"https://t.me/{bot_username}?start=invite_{invite.token}"
         await callback.message.answer(
             "Готово 👇\n\n"
