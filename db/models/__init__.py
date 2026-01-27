@@ -1,5 +1,6 @@
 from db.models.budget import Budget  # noqa: F401
 from db.models.budget_counter import BudgetCounter  # noqa: F401
+from db.models.budget_invite import BudgetInvite  # noqa: F401
 from db.models.budget_membership import BudgetMembership  # noqa: F401
 from db.models.category import Category  # noqa: F401
 from db.models.goal import Goal  # noqa: F401

@@ -8,3 +8,7 @@ class CreateBudgetStates(StatesGroup):
     aux_currency_2 = State()
     timezone = State()
     confirm = State()
+
+
+class JoinBudgetStates(StatesGroup):
+    token = State()

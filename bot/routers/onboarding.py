@@ -11,16 +11,17 @@ from bot.keyboards.common import CANCEL_CALLBACK, build_cancel_reply_keyboard, b
 from bot.keyboards.onboarding import (
     CREATE_BUDGET_CALLBACK,
     JOIN_BUDGET_CALLBACK,
+    INVITE_BUDGET_CALLBACK,
     SKIP_AUX_CURRENCY,
     USE_DEFAULT_TIMEZONE,
     build_default_timezone_keyboard,
     build_skip_aux_keyboard,
 )
-from bot.states.onboarding import CreateBudgetStates
+from bot.states.onboarding import CreateBudgetStates, JoinBudgetStates
 from core.settings_app import app_settings
 from services.budget_service import BudgetServiceError, create_first_budget
 from services.dto.budget import CreateBudgetDTO
-from services.start_service import build_join_budget_placeholder
+from services.invite_service import InviteServiceError, accept_invite, create_invite_for_owner
 from services.user_service import ensure_user
 
 router = Router()
@@ -55,8 +56,40 @@ async def create_budget_callback(
 
 
 @router.callback_query(F.data == JOIN_BUDGET_CALLBACK)
-async def join_budget_callback(callback: CallbackQuery) -> None:
-    await callback.message.answer(build_join_budget_placeholder())
+async def join_budget_callback(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(JoinBudgetStates.token)
+    await callback.message.answer(
+        "Пришли инвайт-ссылку или код приглашения.",
+        reply_markup=build_cancel_reply_keyboard(),
+    )
+    await _safe_callback_answer(callback)
+
+
+@router.callback_query(F.data == INVITE_BUDGET_CALLBACK)
+async def invite_budget_callback(
+    callback: CallbackQuery,
+    session: AsyncSession,
+) -> None:
+    if callback.from_user is None:
+        await _safe_callback_answer(callback)
+        return
+    user = await ensure_user(
+        session=session,
+        telegram_user_id=callback.from_user.id,
+        telegram_username=callback.from_user.username,
+        first_name=callback.from_user.first_name,
+        last_name=callback.from_user.last_name,
+    )
+    try:
+        invite = await create_invite_for_owner(session, user.id)
+        bot_username = callback.bot.username or (await callback.bot.get_me()).username
+        link = f"https://t.me/{bot_username}?start=invite_{invite.token}"
+        await callback.message.answer(
+            "Готово 👇\n\n"
+            f"Ссылка действует 24 часа и используется один раз:\n{link}"
+        )
+    except InviteServiceError as exc:
+        await callback.message.answer(f"Не удалось создать приглашение: {exc}")
     await _safe_callback_answer(callback)
 
 
@@ -82,6 +115,33 @@ async def budget_name_step(message: Message, state: FSMContext) -> None:
     await state.update_data(name=name)
     await state.set_state(CreateBudgetStates.base_currency)
     await message.answer("Базовая валюта (3 буквы, например RUB):", reply_markup=build_cancel_reply_keyboard())
+
+
+@router.message(JoinBudgetStates.token)
+async def join_budget_token_step(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    if message.from_user is None:
+        await message.answer("Не нашёл пользователя. Попробуй /start ещё раз.")
+        await state.clear()
+        return
+    token = _extract_invite_token(message.text or "")
+    if token is None:
+        await message.answer("Не вижу токен. Пришли ссылку или код вида invite_XXXX.")
+        return
+    user = await ensure_user(
+        session=session,
+        telegram_user_id=message.from_user.id,
+        telegram_username=message.from_user.username,
+        first_name=message.from_user.first_name,
+        last_name=message.from_user.last_name,
+    )
+    try:
+        await accept_invite(session, token, user.id)
+    except InviteServiceError as exc:
+        await message.answer(f"Не удалось присоединиться: {exc}")
+        await state.clear()
+        return
+    await state.clear()
+    await message.answer("✅ Ты присоединился к бюджету.", reply_markup=ReplyKeyboardRemove())
 
 
 @router.message(CreateBudgetStates.base_currency)
@@ -239,3 +299,14 @@ async def _safe_callback_answer(callback: CallbackQuery) -> None:
         await callback.answer()
     except TelegramBadRequest:
         return
+
+
+def _extract_invite_token(text: str) -> str | None:
+    text = text.strip()
+    if not text:
+        return None
+    if "start=invite_" in text:
+        return text.split("start=invite_", 1)[1].strip()
+    if text.startswith("invite_"):
+        return text.replace("invite_", "", 1).strip()
+    return None

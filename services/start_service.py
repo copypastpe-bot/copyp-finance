@@ -4,7 +4,3 @@ def build_start_message() -> str:
         "Я помогу вести учёт доходов и расходов.\n\n"
         "Создадим первый бюджет?"
     )
-
-
-def build_join_budget_placeholder() -> str:
-    return "Присоединение по ссылке скоро появится. Готовим механику."

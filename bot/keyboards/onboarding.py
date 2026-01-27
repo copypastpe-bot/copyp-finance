@@ -2,6 +2,7 @@ from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 CREATE_BUDGET_CALLBACK = "onboarding:create_budget"
 JOIN_BUDGET_CALLBACK = "onboarding:join_budget"
+INVITE_BUDGET_CALLBACK = "onboarding:invite_budget"
 SKIP_AUX_CURRENCY = "onboarding:skip_aux"
 USE_DEFAULT_TIMEZONE = "onboarding:default_tz"
 
@@ -14,6 +15,9 @@ def build_start_keyboard() -> InlineKeyboardMarkup:
             ],
             [
                 InlineKeyboardButton(text="➕ Присоединиться", callback_data=JOIN_BUDGET_CALLBACK),
+            ],
+            [
+                InlineKeyboardButton(text="🔗 Пригласить участника", callback_data=INVITE_BUDGET_CALLBACK),
             ],
         ]
     )

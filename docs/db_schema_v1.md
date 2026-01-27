@@ -256,6 +256,33 @@ AI / источник ввода (опционально, но полезно д
 
 ---
 
+### 10) `budget_invites`
+Инвайты для присоединения к бюджету.
+
+Колонки:
+- `id` uuid PK
+- `budget_id` uuid NOT NULL FK → `budgets.id`
+- `token` text NOT NULL (уникальный токен)
+- `created_by_user_id` uuid NOT NULL FK → `users.id`
+- `created_at` timestamptz NOT NULL DEFAULT now()
+- `expires_at` timestamptz NOT NULL
+- `max_uses` integer NOT NULL DEFAULT 1
+- `used_count` integer NOT NULL DEFAULT 0
+- `last_used_at` timestamptz NULL
+- `is_active` boolean NOT NULL DEFAULT true
+
+Индексы:
+- `ux_budget_invites_token` (unique)
+- `idx_budget_invites_budget_id`
+- `idx_budget_invites_created_by_user_id`
+
+Правила:
+- Инвайт одноразовый (`max_uses=1`).
+- Срок действия — 24 часа от момента создания.
+- Просроченный или использованный инвайт не действует.
+
+---
+
 ## Enum definitions (logical)
 В v1 это “enum-like” текстовые поля. Позже можно мигрировать на PostgreSQL ENUM.
 
