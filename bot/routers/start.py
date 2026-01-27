@@ -4,15 +4,19 @@ from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.onboarding import build_start_keyboard
-from services.invite_service import InviteServiceError, accept_invite
+from aiogram.fsm.context import FSMContext
+
+from services.invite_service import InviteServiceError, get_invite_preview
 from services.start_service import build_start_message
+from bot.keyboards.common import build_invite_confirm_keyboard
+from bot.states.onboarding import JoinBudgetStates
 from services.user_service import ensure_user
 
 router = Router()
 
 
 @router.message(CommandStart())
-async def start_handler(message: Message, session: AsyncSession) -> None:
+async def start_handler(message: Message, session: AsyncSession, state: FSMContext) -> None:
     if message.from_user is not None:
         user = await ensure_user(
             session=session,
@@ -25,10 +29,17 @@ async def start_handler(message: Message, session: AsyncSession) -> None:
         token = _extract_invite_token(message.text or "")
         if token is not None:
             try:
-                await accept_invite(session, token, user.id)
-                await message.answer("✅ Ты присоединился к бюджету.")
+                invite, budget_name, owner_username = await get_invite_preview(session, token)
+                await state.update_data(invite_token=invite.token, invite_user_id=str(user.id))
+                await state.set_state(JoinBudgetStates.confirm)
+                owner_text = f"@{owner_username}" if owner_username else "без username"
+                await message.answer(
+                    f'Чтобы присоединиться к "{budget_name}" — владелец {owner_text}, нажмите старт.',
+                    reply_markup=build_invite_confirm_keyboard(),
+                )
             except InviteServiceError as exc:
                 await message.answer(f"Не удалось присоединиться: {exc}")
+            return
 
     response_text = build_start_message()
     await message.answer(response_text, reply_markup=build_start_keyboard())

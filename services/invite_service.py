@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.models.budget import Budget
 from db.models.budget_invite import BudgetInvite
 from db.models.budget_membership import BudgetMembership
+from db.models.user import User
 
 
 class InviteServiceError(Exception):
@@ -90,6 +91,34 @@ async def accept_invite(session: AsyncSession, token: str, user_id: uuid.UUID) -
     await session.commit()
 
     return membership
+
+
+async def get_invite_preview(
+    session: AsyncSession, token: str
+) -> tuple[BudgetInvite, str, str | None]:
+    invite_result = await session.execute(
+        select(BudgetInvite, Budget, User)
+        .join(Budget, Budget.id == BudgetInvite.budget_id)
+        .join(User, User.id == BudgetInvite.created_by_user_id)
+        .where(BudgetInvite.token == token)
+    )
+    row = invite_result.first()
+    if row is None:
+        raise InviteServiceError("Инвайт не найден.")
+
+    invite, budget, owner = row
+    if not invite.is_active:
+        raise InviteServiceError("Инвайт не найден.")
+
+    now = datetime.now(timezone.utc)
+    if invite.expires_at <= now:
+        raise InviteServiceError("Срок действия ссылки истёк.")
+    if invite.used_count >= invite.max_uses:
+        raise InviteServiceError("Ссылка уже использована.")
+    if budget.is_archived:
+        raise InviteServiceError("Бюджет архивирован.")
+
+    return invite, budget.name, owner.telegram_username
 
 
 def _generate_token() -> str:

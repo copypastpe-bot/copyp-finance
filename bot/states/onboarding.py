@@ -12,3 +12,4 @@ class CreateBudgetStates(StatesGroup):
 
 class JoinBudgetStates(StatesGroup):
     token = State()
+    confirm = State()

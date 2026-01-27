@@ -7,7 +7,12 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.keyboards.common import CANCEL_CALLBACK, build_cancel_reply_keyboard, build_confirm_inline_keyboard
+from bot.keyboards.common import (
+    CANCEL_CALLBACK,
+    build_cancel_reply_keyboard,
+    build_confirm_inline_keyboard,
+    build_invite_confirm_keyboard,
+)
 from bot.keyboards.onboarding import (
     CREATE_BUDGET_CALLBACK,
     JOIN_BUDGET_CALLBACK,
@@ -21,7 +26,12 @@ from bot.states.onboarding import CreateBudgetStates, JoinBudgetStates
 from core.settings_app import app_settings
 from services.budget_service import BudgetServiceError, create_first_budget
 from services.dto.budget import CreateBudgetDTO
-from services.invite_service import InviteServiceError, accept_invite, create_invite_for_owner
+from services.invite_service import (
+    InviteServiceError,
+    accept_invite,
+    create_invite_for_owner,
+    get_invite_preview,
+)
 from services.user_service import ensure_user
 
 router = Router()
@@ -139,13 +149,43 @@ async def join_budget_token_step(message: Message, state: FSMContext, session: A
         last_name=message.from_user.last_name,
     )
     try:
-        await accept_invite(session, token, user.id)
+        invite, budget_name, owner_username = await get_invite_preview(session, token)
     except InviteServiceError as exc:
         await message.answer(f"Не удалось присоединиться: {exc}")
         await state.clear()
         return
+
+    await state.update_data(invite_token=invite.token, invite_user_id=str(user.id))
+    await state.set_state(JoinBudgetStates.confirm)
+    owner_text = f"@{owner_username}" if owner_username else "без username"
+    await message.answer(
+        f'Чтобы присоединиться к "{budget_name}" — владелец {owner_text}, нажмите старт.',
+        reply_markup=build_invite_confirm_keyboard(),
+    )
+
+
+@router.callback_query(F.data == "onboarding:accept_invite", JoinBudgetStates.confirm)
+async def accept_invite_callback(
+    callback: CallbackQuery, state: FSMContext, session: AsyncSession
+) -> None:
+    data = await state.get_data()
+    token = data.get("invite_token")
+    user_id = data.get("invite_user_id")
+    if token is None or user_id is None:
+        await callback.message.answer("Не найден инвайт. Попробуй ещё раз.")
+        await state.clear()
+        await _safe_callback_answer(callback)
+        return
+    try:
+        await accept_invite(session, token, uuid.UUID(user_id))
+    except InviteServiceError as exc:
+        await callback.message.answer(f"Не удалось присоединиться: {exc}")
+        await state.clear()
+        await _safe_callback_answer(callback)
+        return
     await state.clear()
-    await message.answer("✅ Ты присоединился к бюджету.", reply_markup=ReplyKeyboardRemove())
+    await callback.message.answer("✅ Ты присоединился к бюджету.", reply_markup=ReplyKeyboardRemove())
+    await _safe_callback_answer(callback)
 
 
 @router.message(CreateBudgetStates.base_currency)
