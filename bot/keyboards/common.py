@@ -29,7 +29,7 @@ def build_invite_confirm_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="▶️ Старт", callback_data="onboarding:accept_invite"),
+                InlineKeyboardButton(text="✅ Присоединиться", callback_data="onboarding:accept_invite"),
             ],
             [
                 InlineKeyboardButton(text="❌ Отмена", callback_data=CANCEL_CALLBACK),

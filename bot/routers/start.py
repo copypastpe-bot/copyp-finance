@@ -32,9 +32,9 @@ async def start_handler(message: Message, session: AsyncSession, state: FSMConte
                 invite, budget_name, owner_username = await get_invite_preview(session, token)
                 await state.update_data(invite_token=invite.token, invite_user_id=str(user.id))
                 await state.set_state(JoinBudgetStates.confirm)
-                owner_text = f"@{owner_username}" if owner_username else "без username"
+                owner_text = f"@{owner_username}" if owner_username else "пользователь"
                 await message.answer(
-                    f'Чтобы присоединиться к "{budget_name}" — владелец {owner_text}, нажмите старт.',
+                    f'{owner_text} пригласил вас в совместный бюджет "{budget_name}".',
                     reply_markup=build_invite_confirm_keyboard(),
                 )
             except InviteServiceError as exc:

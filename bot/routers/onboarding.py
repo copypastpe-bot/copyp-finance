@@ -22,6 +22,7 @@ from bot.keyboards.onboarding import (
     build_default_timezone_keyboard,
     build_skip_aux_keyboard,
 )
+from bot.keyboards.onboarding import build_start_keyboard
 from bot.states.onboarding import CreateBudgetStates, JoinBudgetStates
 from core.settings_app import app_settings
 from services.budget_service import BudgetServiceError, create_first_budget
@@ -32,6 +33,7 @@ from services.invite_service import (
     create_invite_for_owner,
     get_invite_preview,
 )
+from services.start_service import build_start_message
 from services.user_service import ensure_user
 
 router = Router()
@@ -109,14 +111,22 @@ async def invite_budget_callback(
 
 @router.message(F.text.casefold() == "отмена")
 async def cancel_message(message: Message, state: FSMContext) -> None:
+    current_state = await state.get_state()
     await state.clear()
-    await message.answer("Действие отменено.", reply_markup=ReplyKeyboardRemove())
+    if current_state in {JoinBudgetStates.token.state, JoinBudgetStates.confirm.state}:
+        await message.answer(build_start_message(), reply_markup=build_start_keyboard())
+    else:
+        await message.answer("Действие отменено.", reply_markup=ReplyKeyboardRemove())
 
 
 @router.callback_query(F.data == CANCEL_CALLBACK)
 async def cancel_callback(callback: CallbackQuery, state: FSMContext) -> None:
+    current_state = await state.get_state()
     await state.clear()
-    await callback.message.answer("Действие отменено.", reply_markup=ReplyKeyboardRemove())
+    if current_state in {JoinBudgetStates.token.state, JoinBudgetStates.confirm.state}:
+        await callback.message.answer(build_start_message(), reply_markup=build_start_keyboard())
+    else:
+        await callback.message.answer("Действие отменено.", reply_markup=ReplyKeyboardRemove())
     await _safe_callback_answer(callback)
 
 
@@ -157,9 +167,9 @@ async def join_budget_token_step(message: Message, state: FSMContext, session: A
 
     await state.update_data(invite_token=invite.token, invite_user_id=str(user.id))
     await state.set_state(JoinBudgetStates.confirm)
-    owner_text = f"@{owner_username}" if owner_username else "без username"
+    owner_text = f"@{owner_username}" if owner_username else "пользователь"
     await message.answer(
-        f'Чтобы присоединиться к "{budget_name}" — владелец {owner_text}, нажмите старт.',
+        f'{owner_text} пригласил вас в совместный бюджет "{budget_name}".',
         reply_markup=build_invite_confirm_keyboard(),
     )
 
