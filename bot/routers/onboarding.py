@@ -1,6 +1,7 @@
 import uuid
 
 from aiogram import F, Router
+from aiogram.exceptions import TelegramBadRequest
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -48,13 +49,13 @@ async def create_budget_callback(
         "Как назовём бюджет?",
         reply_markup=build_cancel_reply_keyboard(),
     )
-    await callback.answer()
+    await _safe_callback_answer(callback)
 
 
 @router.callback_query(F.data == JOIN_BUDGET_CALLBACK)
 async def join_budget_callback(callback: CallbackQuery) -> None:
     await callback.message.answer(build_join_budget_placeholder())
-    await callback.answer()
+    await _safe_callback_answer(callback)
 
 
 @router.message(F.text.casefold() == "отмена")
@@ -67,7 +68,7 @@ async def cancel_message(message: Message, state: FSMContext) -> None:
 async def cancel_callback(callback: CallbackQuery, state: FSMContext) -> None:
     await state.clear()
     await callback.message.answer("Действие отменено.", reply_markup=ReplyKeyboardRemove())
-    await callback.answer()
+    await _safe_callback_answer(callback)
 
 
 @router.message(CreateBudgetStates.name)
@@ -103,7 +104,7 @@ async def skip_aux_currency_1(callback: CallbackQuery, state: FSMContext) -> Non
         "Вторая вспомогательная валюта (или пропусти):",
         reply_markup=build_skip_aux_keyboard(),
     )
-    await callback.answer()
+    await _safe_callback_answer(callback)
 
 
 @router.message(CreateBudgetStates.aux_currency_1)
@@ -136,7 +137,7 @@ async def skip_aux_currency_2(callback: CallbackQuery, state: FSMContext) -> Non
         "Таймзона бюджета (IANA, например Europe/Belgrade):",
         reply_markup=build_default_timezone_keyboard(app_settings.default_timezone),
     )
-    await callback.answer()
+    await _safe_callback_answer(callback)
 
 
 @router.message(CreateBudgetStates.aux_currency_2)
@@ -165,7 +166,7 @@ async def budget_aux_currency_2_step(message: Message, state: FSMContext) -> Non
 async def use_default_timezone(callback: CallbackQuery, state: FSMContext) -> None:
     await state.update_data(timezone=app_settings.default_timezone)
     await _send_budget_summary(callback.message, state)
-    await callback.answer()
+    await _safe_callback_answer(callback)
 
 
 @router.message(CreateBudgetStates.timezone)
@@ -200,7 +201,7 @@ async def confirm_budget(callback: CallbackQuery, state: FSMContext, session: As
     if owner_user_id is None:
         await callback.message.answer("Не нашёл пользователя. Попробуй /start ещё раз.")
         await state.clear()
-        await callback.answer()
+        await _safe_callback_answer(callback)
         return
 
     owner_uuid = uuid.UUID(owner_user_id)
@@ -217,14 +218,21 @@ async def confirm_budget(callback: CallbackQuery, state: FSMContext, session: As
     except BudgetServiceError as exc:
         await callback.message.answer(f"Не удалось создать бюджет: {exc}")
         await state.set_state(CreateBudgetStates.base_currency)
-        await callback.answer()
+        await _safe_callback_answer(callback)
         return
     except Exception:
         await callback.message.answer("Что-то пошло не так. Попробуй ещё раз.")
         await state.clear()
-        await callback.answer()
+        await _safe_callback_answer(callback)
         return
 
     await state.clear()
     await callback.message.answer("✅ Бюджет создан.", reply_markup=ReplyKeyboardRemove())
-    await callback.answer()
+    await _safe_callback_answer(callback)
+
+
+async def _safe_callback_answer(callback: CallbackQuery) -> None:
+    try:
+        await callback.answer()
+    except TelegramBadRequest:
+        return
