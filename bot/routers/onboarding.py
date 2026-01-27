@@ -1,3 +1,4 @@
+import logging
 import uuid
 
 from aiogram import F, Router
@@ -23,6 +24,7 @@ from services.start_service import build_join_budget_placeholder
 from services.user_service import ensure_user
 
 router = Router()
+logger = logging.getLogger(__name__)
 
 
 @router.callback_query(F.data == CREATE_BUDGET_CALLBACK)
@@ -221,6 +223,7 @@ async def confirm_budget(callback: CallbackQuery, state: FSMContext, session: As
         await _safe_callback_answer(callback)
         return
     except Exception:
+        logger.exception("Create budget failed", extra={"owner_user_id": owner_user_id, "data": data})
         await callback.message.answer("Что-то пошло не так. Попробуй ещё раз.")
         await state.clear()
         await _safe_callback_answer(callback)

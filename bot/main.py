@@ -1,4 +1,5 @@
 import asyncio
+import logging
 
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.memory import MemoryStorage
@@ -10,6 +11,7 @@ from core.settings_app import app_settings
 
 
 async def main() -> None:
+    logging.basicConfig(level=logging.INFO)
     bot = Bot(token=app_settings.bot_token)
     dp = Dispatcher(storage=MemoryStorage())
 
