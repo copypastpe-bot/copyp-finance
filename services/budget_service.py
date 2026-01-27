@@ -27,16 +27,16 @@ async def create_first_budget(
     if len(normalized) != len(set(normalized)):
         raise BudgetServiceError("Валюты должны быть разными внутри бюджета.")
 
-    existing = await session.execute(
-        select(BudgetMembership).where(
-            BudgetMembership.user_id == owner_user_id,
-            BudgetMembership.is_active.is_(True),
-        )
-    )
-    if existing.scalar_one_or_none() is not None:
-        raise BudgetServiceError("У тебя уже есть активный бюджет.")
-
     async with session.begin():
+        existing = await session.execute(
+            select(BudgetMembership).where(
+                BudgetMembership.user_id == owner_user_id,
+                BudgetMembership.is_active.is_(True),
+            )
+        )
+        if existing.scalar_one_or_none() is not None:
+            raise BudgetServiceError("У тебя уже есть активный бюджет.")
+
         budget = Budget(
             name=payload.name.strip(),
             base_currency=payload.base_currency,
