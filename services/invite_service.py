@@ -51,42 +51,43 @@ async def create_invite_for_owner(session: AsyncSession, owner_user_id: uuid.UUI
 
 
 async def accept_invite(session: AsyncSession, token: str, user_id: uuid.UUID) -> BudgetMembership:
-    async with session.begin():
-        invite_result = await session.execute(
-            select(BudgetInvite).where(BudgetInvite.token == token)
+    invite_result = await session.execute(
+        select(BudgetInvite).where(BudgetInvite.token == token)
+    )
+    invite = invite_result.scalar_one_or_none()
+    if invite is None or not invite.is_active:
+        raise InviteServiceError("Инвайт не найден.")
+
+    now = datetime.now(timezone.utc)
+    if invite.expires_at <= now:
+        raise InviteServiceError("Срок действия ссылки истёк.")
+    if invite.used_count >= invite.max_uses:
+        raise InviteServiceError("Ссылка уже использована.")
+
+    existing = await session.execute(
+        select(BudgetMembership).where(
+            BudgetMembership.user_id == user_id,
+            BudgetMembership.budget_id == invite.budget_id,
+            BudgetMembership.is_active.is_(True),
         )
-        invite = invite_result.scalar_one_or_none()
-        if invite is None or not invite.is_active:
-            raise InviteServiceError("Инвайт не найден.")
+    )
+    if existing.scalar_one_or_none() is not None:
+        raise InviteServiceError("Ты уже участник этого бюджета.")
 
-        now = datetime.now(timezone.utc)
-        if invite.expires_at <= now:
-            raise InviteServiceError("Срок действия ссылки истёк.")
-        if invite.used_count >= invite.max_uses:
-            raise InviteServiceError("Ссылка уже использована.")
+    membership = BudgetMembership(
+        budget_id=invite.budget_id,
+        user_id=user_id,
+        role="participant",
+        is_active=True,
+    )
+    session.add(membership)
 
-        existing = await session.execute(
-            select(BudgetMembership).where(
-                BudgetMembership.user_id == user_id,
-                BudgetMembership.budget_id == invite.budget_id,
-                BudgetMembership.is_active.is_(True),
-            )
-        )
-        if existing.scalar_one_or_none() is not None:
-            raise InviteServiceError("Ты уже участник этого бюджета.")
+    invite.used_count += 1
+    invite.last_used_at = now
+    if invite.used_count >= invite.max_uses:
+        invite.is_active = False
 
-        membership = BudgetMembership(
-            budget_id=invite.budget_id,
-            user_id=user_id,
-            role="participant",
-            is_active=True,
-        )
-        session.add(membership)
-
-        invite.used_count += 1
-        invite.last_used_at = now
-        if invite.used_count >= invite.max_uses:
-            invite.is_active = False
+    await session.commit()
 
     return membership
 
