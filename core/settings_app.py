@@ -3,6 +3,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class AppSettings(BaseSettings):
     bot_token: str
+    default_timezone: str = "Europe/Belgrade"
 
     model_config = SettingsConfigDict(
         env_file=".env",

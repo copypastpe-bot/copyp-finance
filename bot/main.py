@@ -1,6 +1,7 @@
 import asyncio
 
 from aiogram import Bot, Dispatcher
+from aiogram.fsm.storage.memory import MemoryStorage
 
 from bot.middlewares.db_session import DbSessionMiddleware
 from bot.routers.onboarding import router as onboarding_router
@@ -10,7 +11,7 @@ from core.settings_app import app_settings
 
 async def main() -> None:
     bot = Bot(token=app_settings.bot_token)
-    dp = Dispatcher()
+    dp = Dispatcher(storage=MemoryStorage())
 
     dp.update.middleware(DbSessionMiddleware())
 

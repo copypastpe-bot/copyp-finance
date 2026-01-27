@@ -6,9 +6,5 @@ def build_start_message() -> str:
     )
 
 
-def build_create_budget_placeholder() -> str:
-    return "Создание бюджета скоро появится. Начинаем настройку."
-
-
 def build_join_budget_placeholder() -> str:
     return "Присоединение по ссылке скоро появится. Готовим механику."
