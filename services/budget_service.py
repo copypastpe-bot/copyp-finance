@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from db.models.budget import Budget
 from db.models.budget_counter import BudgetCounter
 from db.models.budget_membership import BudgetMembership
+from db.models.user import User
 from services.dto.budget import CreateBudgetDTO
 
 
@@ -28,6 +29,7 @@ async def create_first_budget(
         raise BudgetServiceError("Валюты должны быть разными внутри бюджета.")
 
     async with session.begin():
+        owner = await session.get(User, owner_user_id)
         existing = await session.execute(
             select(BudgetMembership).where(
                 BudgetMembership.user_id == owner_user_id,
@@ -61,5 +63,8 @@ async def create_first_budget(
             next_seq_no=1,
         )
         session.add(counter)
+
+        if owner is not None and owner.active_budget_id is None:
+            owner.active_budget_id = budget.id
 
     return budget

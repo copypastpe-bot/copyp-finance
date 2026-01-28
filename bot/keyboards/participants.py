@@ -1,14 +1,14 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
 
-def build_participants_keyboard(participant_ids: list[str]) -> InlineKeyboardMarkup:
+def build_participants_keyboard(items: list[dict[str, str]]) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
-    for participant_id in participant_ids:
+    for item in items:
         rows.append(
             [
                 InlineKeyboardButton(
-                    text="Удалить",
-                    callback_data=f"participants:remove:{participant_id}",
+                    text=f"Удалить {item['username']}",
+                    callback_data=f"participants:remove:{item['user_id']}",
                 )
             ]
         )

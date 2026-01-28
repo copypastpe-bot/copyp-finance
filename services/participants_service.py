@@ -58,6 +58,10 @@ async def remove_participant(
         raise ParticipantsServiceError("Нельзя удалить владельца бюджета.")
 
     membership.is_active = False
+
+    user = await session.get(User, participant_user_id)
+    if user is not None and user.active_budget_id == budget_id:
+        user.active_budget_id = None
     await session.commit()
 
 

@@ -59,6 +59,7 @@
 - `telegram_username` text NULL
 - `first_name` text NULL
 - `last_name` text NULL
+- `active_budget_id` uuid NULL FK → `budgets.id`
 - `created_at` timestamptz NOT NULL DEFAULT now()
 
 Индексы/ограничения:

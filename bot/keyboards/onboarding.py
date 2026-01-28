@@ -22,6 +22,9 @@ def build_start_keyboard() -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(text="👥 Участники", callback_data="participants:list"),
             ],
+            [
+                InlineKeyboardButton(text="⭐ Активный бюджет", callback_data="budgets:active"),
+            ],
         ]
     )
 

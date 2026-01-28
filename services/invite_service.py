@@ -83,6 +83,10 @@ async def accept_invite(session: AsyncSession, token: str, user_id: uuid.UUID) -
     )
     session.add(membership)
 
+    user = await session.get(User, user_id)
+    if user is not None and user.active_budget_id is None:
+        user.active_budget_id = invite.budget_id
+
     invite.used_count += 1
     invite.last_used_at = now
     if invite.used_count >= invite.max_uses:

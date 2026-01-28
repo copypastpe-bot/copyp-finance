@@ -42,14 +42,16 @@ async def participants_list(callback: CallbackQuery, session: AsyncSession) -> N
         return
 
     lines = ["👥 Участники\n"]
-    participant_ids: list[str] = []
+    keyboard_items: list[dict[str, str]] = []
     for item in items:
         lines.append(f"{item['username']} — {item['name']} ({item['role']})")
         if item["role"] != "владелец":
-            participant_ids.append(item["user_id"])
+            keyboard_items.append(
+                {"user_id": item["user_id"], "username": item["username"]}
+            )
 
     text = "\n".join(lines)
-    await callback.message.answer(text, reply_markup=build_participants_keyboard(participant_ids))
+    await callback.message.answer(text, reply_markup=build_participants_keyboard(keyboard_items))
     await _safe_callback_answer(callback)
 
 
