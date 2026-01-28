@@ -14,6 +14,17 @@ def build_budgets_menu_keyboard() -> InlineKeyboardMarkup:
     )
 
 
+def build_budgets_join_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="Назад", callback_data="budgets:menu:back"),
+                InlineKeyboardButton(text="Закрыть", callback_data="budgets:menu:close"),
+            ]
+        ]
+    )
+
+
 def build_active_budget_keyboard(items: list[dict[str, str]]) -> InlineKeyboardMarkup:
     rows: list[list[InlineKeyboardButton]] = []
     for item in items:

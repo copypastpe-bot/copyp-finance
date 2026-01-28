@@ -9,6 +9,7 @@ from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.features.main_menu.keyboards import build_main_menu_keyboard
+from bot.features.budgets.keyboards import build_budgets_menu_keyboard
 from bot.features.onboarding.keyboards import (
     CANCEL_CALLBACK,
     CREATE_BUDGET_CALLBACK,
@@ -235,6 +236,10 @@ async def join_budget_token_step(message: Message, state: FSMContext, session: A
         await state.clear()
         await message.answer(build_start_message())
         await message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
+        return
+    if text.casefold() == "бюджеты":
+        await state.clear()
+        await message.answer("Меню бюджетов:", reply_markup=build_budgets_menu_keyboard())
         return
     token = _extract_invite_token(text_raw)
     if token is None:

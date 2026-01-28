@@ -10,6 +10,7 @@ from bot.features.budgets.keyboards import (
     build_active_budget_keyboard,
     build_archive_confirm_keyboard,
     build_budget_detail_keyboard,
+    build_budgets_join_keyboard,
     build_budgets_menu_keyboard,
     build_confirm_remove_keyboard,
     build_participants_keyboard,
@@ -220,7 +221,7 @@ async def budgets_menu_join(callback: CallbackQuery, state: FSMContext) -> None:
     await _edit_or_answer(
         callback,
         "Пришли инвайт-ссылку или код приглашения.",
-        reply_markup=build_cancel_reply_keyboard(),
+        reply_markup=build_budgets_join_keyboard(),
     )
     await _safe_callback_answer(callback)
 
