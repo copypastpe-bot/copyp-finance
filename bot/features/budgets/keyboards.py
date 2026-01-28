@@ -18,7 +18,7 @@ def build_budgets_join_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
             [
-                InlineKeyboardButton(text="Назад", callback_data="budgets:menu:back"),
+                InlineKeyboardButton(text="Назад", callback_data="budgets:list:back"),
                 InlineKeyboardButton(text="Закрыть", callback_data="budgets:menu:close"),
             ]
         ]
