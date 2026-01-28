@@ -22,7 +22,7 @@ from bot.keyboards.onboarding import (
     build_default_timezone_keyboard,
     build_skip_aux_keyboard,
 )
-from bot.keyboards.onboarding import build_start_keyboard
+from bot.keyboards.main_menu import build_main_menu_keyboard
 from bot.states.onboarding import CreateBudgetStates, JoinBudgetStates
 from core.settings_app import app_settings
 from services.budget_service import BudgetServiceError, create_first_budget
@@ -138,8 +138,18 @@ async def invite_budget_callback(
 async def cancel_message(message: Message, state: FSMContext) -> None:
     current_state = await state.get_state()
     await state.clear()
-    if current_state in {JoinBudgetStates.token.state, JoinBudgetStates.confirm.state}:
-        await message.answer(build_start_message(), reply_markup=build_start_keyboard())
+    if current_state in {
+        JoinBudgetStates.token.state,
+        JoinBudgetStates.confirm.state,
+        CreateBudgetStates.name.state,
+        CreateBudgetStates.base_currency.state,
+        CreateBudgetStates.aux_currency_1.state,
+        CreateBudgetStates.aux_currency_2.state,
+        CreateBudgetStates.timezone.state,
+        CreateBudgetStates.confirm.state,
+    }:
+        await message.answer(build_start_message())
+        await message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
     else:
         await message.answer("Действие отменено.", reply_markup=ReplyKeyboardRemove())
 
@@ -148,8 +158,18 @@ async def cancel_message(message: Message, state: FSMContext) -> None:
 async def cancel_callback(callback: CallbackQuery, state: FSMContext) -> None:
     current_state = await state.get_state()
     await state.clear()
-    if current_state in {JoinBudgetStates.token.state, JoinBudgetStates.confirm.state}:
-        await callback.message.answer(build_start_message(), reply_markup=build_start_keyboard())
+    if current_state in {
+        JoinBudgetStates.token.state,
+        JoinBudgetStates.confirm.state,
+        CreateBudgetStates.name.state,
+        CreateBudgetStates.base_currency.state,
+        CreateBudgetStates.aux_currency_1.state,
+        CreateBudgetStates.aux_currency_2.state,
+        CreateBudgetStates.timezone.state,
+        CreateBudgetStates.confirm.state,
+    }:
+        await callback.message.answer(build_start_message())
+        await callback.message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
     else:
         await callback.message.answer("Действие отменено.", reply_markup=ReplyKeyboardRemove())
     await _safe_callback_answer(callback)

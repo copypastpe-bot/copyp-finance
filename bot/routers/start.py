@@ -4,7 +4,6 @@ from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.main_menu import build_main_menu_keyboard
-from bot.keyboards.onboarding import build_start_keyboard
 from aiogram.fsm.context import FSMContext
 
 from services.invite_service import InviteServiceError, get_invite_preview
@@ -43,7 +42,7 @@ async def start_handler(message: Message, session: AsyncSession, state: FSMConte
             return
 
     response_text = build_start_message()
-    await message.answer(response_text, reply_markup=build_start_keyboard())
+    await message.answer(response_text)
     await message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
 
 

@@ -2,12 +2,16 @@ import uuid
 
 from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
+from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.keyboards.budgets_menu import build_budgets_menu_keyboard
 from bot.keyboards.budgets import build_active_budget_keyboard
 from bot.keyboards.budget_detail import build_archive_confirm_keyboard, build_budget_detail_keyboard
 from bot.keyboards.participants import build_confirm_remove_keyboard, build_participants_keyboard
+from bot.keyboards.common import build_cancel_reply_keyboard
+from bot.states.onboarding import CreateBudgetStates, JoinBudgetStates
 from services.active_budget_service import (
     ActiveBudgetServiceError,
     get_active_budget_id,
@@ -50,6 +54,49 @@ async def active_budget_list(callback: CallbackQuery, session: AsyncSession) -> 
     await callback.message.answer(
         "Мои бюджеты:", reply_markup=build_active_budget_keyboard(items)
     )
+    await _safe_callback_answer(callback)
+
+
+@router.callback_query(F.data == "budgets:menu:my")
+async def budgets_menu_my(callback: CallbackQuery, session: AsyncSession) -> None:
+    await active_budget_list(callback, session)
+
+
+@router.callback_query(F.data == "budgets:menu:create")
+async def budgets_menu_create(
+    callback: CallbackQuery, session: AsyncSession, state: FSMContext
+) -> None:
+    if callback.from_user is None:
+        await _safe_callback_answer(callback)
+        return
+    user = await ensure_user(
+        session=session,
+        telegram_user_id=callback.from_user.id,
+        telegram_username=callback.from_user.username,
+        first_name=callback.from_user.first_name,
+        last_name=callback.from_user.last_name,
+    )
+    await state.update_data(owner_user_id=str(user.id))
+    await state.set_state(CreateBudgetStates.name)
+    await callback.message.answer("Как назовём бюджет?", reply_markup=build_cancel_reply_keyboard())
+    await _safe_callback_answer(callback)
+
+
+@router.callback_query(F.data == "budgets:menu:join")
+async def budgets_menu_join(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(JoinBudgetStates.token)
+    await callback.message.answer(
+        "Пришли инвайт-ссылку или код приглашения.",
+        reply_markup=build_cancel_reply_keyboard(),
+    )
+    await _safe_callback_answer(callback)
+
+
+@router.callback_query(F.data == "budgets:menu:back")
+async def budgets_menu_back(callback: CallbackQuery) -> None:
+    from bot.keyboards.main_menu import build_main_menu_keyboard
+
+    await callback.message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
     await _safe_callback_answer(callback)
 
 
