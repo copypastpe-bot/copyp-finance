@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16
+    container_name: finance-bot-db
+    environment:
+      POSTGRES_DB: finance_local
+      POSTGRES_USER: finance
+      POSTGRES_PASSWORD: finance
+    ports:
+      - "5432:5432"
+    volumes:
+      - finance_db:/var/lib/postgresql/data
+
+volumes:
+  finance_db:
