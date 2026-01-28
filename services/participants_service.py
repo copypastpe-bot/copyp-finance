@@ -41,11 +41,11 @@ async def list_active_participants(
 
 
 async def list_active_participants_for_budget(
-    session: AsyncSession, owner_user_id: uuid.UUID, budget_id: uuid.UUID
+    session: AsyncSession, owner_user_id: uuid.UUID, budget_id: uuid.UUID | str
 ) -> list[dict[str, str]]:
-    owner_budget_id = await _get_owner_budget_id(session, owner_user_id)
-    if owner_budget_id != budget_id:
-        raise ParticipantsServiceError("Только владелец может управлять участниками.")
+    if isinstance(budget_id, str):
+        budget_id = uuid.UUID(budget_id)
+    await _ensure_owner_for_budget(session, owner_user_id, budget_id)
     result = await session.execute(
         select(BudgetMembership, User)
         .join(User, User.id == BudgetMembership.user_id)
@@ -102,9 +102,7 @@ async def remove_participant_from_budget(
     budget_id: uuid.UUID,
     participant_user_id: uuid.UUID,
 ) -> None:
-    owner_budget_id = await _get_owner_budget_id(session, owner_user_id)
-    if owner_budget_id != budget_id:
-        raise ParticipantsServiceError("Только владелец может управлять участниками.")
+    await _ensure_owner_for_budget(session, owner_user_id, budget_id)
     membership_result = await session.execute(
         select(BudgetMembership).where(
             BudgetMembership.budget_id == budget_id,
@@ -160,3 +158,19 @@ async def _get_owner_budget_id(session: AsyncSession, owner_user_id: uuid.UUID) 
     if owner_membership is None:
         raise ParticipantsServiceError("Только владелец может управлять участниками.")
     return owner_membership.budget_id
+
+
+async def _ensure_owner_for_budget(
+    session: AsyncSession, owner_user_id: uuid.UUID, budget_id: uuid.UUID
+) -> None:
+    membership = await session.execute(
+        select(BudgetMembership).where(
+            BudgetMembership.user_id == owner_user_id,
+            BudgetMembership.budget_id == budget_id,
+            BudgetMembership.role == "owner",
+            BudgetMembership.is_active.is_(True),
+        )
+    )
+    owner_membership = membership.scalar_one_or_none()
+    if owner_membership is None:
+        raise ParticipantsServiceError("Только владелец может управлять участниками.")
