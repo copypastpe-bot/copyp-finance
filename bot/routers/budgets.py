@@ -1,3 +1,5 @@
+import uuid
+
 from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import CallbackQuery
