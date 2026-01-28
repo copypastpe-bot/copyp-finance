@@ -326,11 +326,8 @@ async def budget_archive_confirm(callback: CallbackQuery, session: AsyncSession)
 
 
 @router.callback_query(F.data == "budget:back")
-async def budget_back(callback: CallbackQuery) -> None:
-    from bot.keyboards.budgets_menu import build_budgets_menu_keyboard
-
-    await callback.message.answer("Меню бюджетов:", reply_markup=build_budgets_menu_keyboard())
-    await _safe_callback_answer(callback)
+async def budget_back(callback: CallbackQuery, session: AsyncSession) -> None:
+    await active_budget_list(callback, session)
 
 
 @router.callback_query(F.data.startswith("budget:back:"))
@@ -358,6 +355,14 @@ async def budget_back_to_detail(callback: CallbackQuery, session: AsyncSession) 
         f"Бюджет: {budget.name}\nID:{budget.id}",
         reply_markup=build_budget_detail_keyboard(str(budget.id), can_set_default),
     )
+    await _safe_callback_answer(callback)
+
+
+@router.callback_query(F.data == "budget:close")
+async def budget_close(callback: CallbackQuery) -> None:
+    from bot.keyboards.main_menu import build_main_menu_keyboard
+
+    await callback.message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
     await _safe_callback_answer(callback)
 
 
