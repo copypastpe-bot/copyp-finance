@@ -13,6 +13,7 @@ from services.participants_service import (
     remove_participant,
 )
 from services.user_service import ensure_user
+from bot.utils.callback_data import decode_uuid
 
 router = Router()
 
@@ -57,12 +58,15 @@ async def participants_list(callback: CallbackQuery, session: AsyncSession) -> N
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data.startswith("participants:remove:"))
+@router.callback_query(F.data.startswith("p:rm:"))
 async def participants_remove(callback: CallbackQuery, session: AsyncSession) -> None:
     if callback.from_user is None:
         await _safe_callback_answer(callback)
         return
-    participant_id = callback.data.split("participants:remove:", 1)[1]
+    payload = callback.data.split("p:rm:", 1)[1]
+    if ":" in payload:
+        payload = payload.split(":", 1)[0]
+    participant_id = decode_uuid(payload)
     user = await ensure_user(
         session=session,
         telegram_user_id=callback.from_user.id,
@@ -80,17 +84,20 @@ async def participants_remove(callback: CallbackQuery, session: AsyncSession) ->
         return
     await callback.message.answer(
         f"Удалить участника?\n{display}",
-        reply_markup=build_confirm_remove_keyboard(participant_id, None, None),
+        reply_markup=build_confirm_remove_keyboard(str(participant_id), None, None),
     )
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data.startswith("participants:confirm:"))
+@router.callback_query(F.data.startswith("p:cf:"))
 async def participants_confirm(callback: CallbackQuery, session: AsyncSession) -> None:
     if callback.from_user is None:
         await _safe_callback_answer(callback)
         return
-    participant_id = callback.data.split("participants:confirm:", 1)[1]
+    payload = callback.data.split("p:cf:", 1)[1]
+    if ":" in payload:
+        payload = payload.split(":", 1)[0]
+    participant_id = decode_uuid(payload)
     user = await ensure_user(
         session=session,
         telegram_user_id=callback.from_user.id,
@@ -102,7 +109,7 @@ async def participants_confirm(callback: CallbackQuery, session: AsyncSession) -
         await remove_participant(
             session,
             user.id,
-            uuid.UUID(participant_id),
+            participant_id,
         )
     except ParticipantsServiceError as exc:
         await callback.message.answer(f"Не удалось удалить: {exc}")

@@ -26,6 +26,7 @@ from services.participants_service import (
     remove_participant_from_budget,
 )
 from services.user_service import ensure_user
+from bot.utils.callback_data import decode_uuid
 
 router = Router()
 
@@ -224,7 +225,7 @@ async def budget_participants(callback: CallbackQuery, session: AsyncSession) ->
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data.startswith("participants:remove:"))
+@router.callback_query(F.data.startswith("p:rm:"))
 async def budget_participant_remove(callback: CallbackQuery, session: AsyncSession) -> None:
     if callback.from_user is None:
         await _safe_callback_answer(callback)
@@ -236,15 +237,20 @@ async def budget_participant_remove(callback: CallbackQuery, session: AsyncSessi
         first_name=callback.from_user.first_name,
         last_name=callback.from_user.last_name,
     )
-    participant_id = callback.data.split("participants:remove:", 1)[1]
-    payload = callback.data.split("participants:remove:", 1)[1]
-    participant_id, budget_id = payload.split(":", 1)
+    payload = callback.data.split("p:rm:", 1)[1]
+    if ":" not in payload:
+        await _edit_or_answer(callback, "Не удалось определить участника.")
+        await _safe_callback_answer(callback)
+        return
+    participant_part, budget_part = payload.split(":", 1)
+    participant_id = decode_uuid(participant_part)
+    budget_id = decode_uuid(budget_part)
     try:
         await _edit_or_answer(
             callback,
             "Удалить участника?",
             reply_markup=build_confirm_remove_keyboard(
-                participant_id, f"budget:back:{budget_id}", budget_id
+                str(participant_id), f"budget:back:{budget_id}", str(budget_id)
             ),
         )
     except ParticipantsServiceError as exc:
@@ -252,7 +258,7 @@ async def budget_participant_remove(callback: CallbackQuery, session: AsyncSessi
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data.startswith("participants:confirm:"))
+@router.callback_query(F.data.startswith("p:cf:"))
 async def budget_participant_confirm(callback: CallbackQuery, session: AsyncSession) -> None:
     if callback.from_user is None:
         await _safe_callback_answer(callback)
@@ -264,11 +270,17 @@ async def budget_participant_confirm(callback: CallbackQuery, session: AsyncSess
         first_name=callback.from_user.first_name,
         last_name=callback.from_user.last_name,
     )
-    payload = callback.data.split("participants:confirm:", 1)[1]
-    participant_id, budget_id = payload.split(":", 1)
+    payload = callback.data.split("p:cf:", 1)[1]
+    if ":" not in payload:
+        await _edit_or_answer(callback, "Не удалось определить участника.")
+        await _safe_callback_answer(callback)
+        return
+    participant_part, budget_part = payload.split(":", 1)
+    participant_id = decode_uuid(participant_part)
+    budget_id = decode_uuid(budget_part)
     try:
         await remove_participant_from_budget(
-            session, user.id, uuid.UUID(budget_id), uuid.UUID(participant_id)
+            session, user.id, budget_id, participant_id
         )
     except ParticipantsServiceError as exc:
         await callback.message.answer(f"Не удалось удалить: {exc}")
