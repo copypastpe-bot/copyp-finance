@@ -51,7 +51,9 @@ async def participants_list(callback: CallbackQuery, session: AsyncSession) -> N
             )
 
     text = "\n".join(lines)
-    await callback.message.answer(text, reply_markup=build_participants_keyboard(keyboard_items))
+    await callback.message.answer(
+        text, reply_markup=build_participants_keyboard(keyboard_items, None, None)
+    )
     await _safe_callback_answer(callback)
 
 
@@ -78,7 +80,7 @@ async def participants_remove(callback: CallbackQuery, session: AsyncSession) ->
         return
     await callback.message.answer(
         f"Удалить участника?\n{display}",
-        reply_markup=build_confirm_remove_keyboard(participant_id),
+        reply_markup=build_confirm_remove_keyboard(participant_id, None, None),
     )
     await _safe_callback_answer(callback)
 
@@ -112,6 +114,9 @@ async def participants_confirm(callback: CallbackQuery, session: AsyncSession) -
 
 @router.callback_query(F.data == "participants:close")
 async def participants_close(callback: CallbackQuery) -> None:
+    from bot.keyboards.main_menu import build_main_menu_keyboard
+
+    await callback.message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
     await _safe_callback_answer(callback)
 
 

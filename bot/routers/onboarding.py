@@ -9,20 +9,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.keyboards.common import (
     CANCEL_CALLBACK,
+    build_cancel_back_reply_keyboard,
     build_cancel_reply_keyboard,
     build_confirm_inline_keyboard,
     build_invite_confirm_keyboard,
 )
+from bot.keyboards.main_menu import build_main_menu_keyboard
 from bot.keyboards.onboarding import (
     CREATE_BUDGET_CALLBACK,
     JOIN_BUDGET_CALLBACK,
     INVITE_BUDGET_CALLBACK,
-    SKIP_AUX_CURRENCY,
-    USE_DEFAULT_TIMEZONE,
-    build_default_timezone_keyboard,
-    build_skip_aux_keyboard,
+    build_aux_currency_reply_keyboard,
+    build_timezone_reply_keyboard,
 )
-from bot.keyboards.main_menu import build_main_menu_keyboard
 from bot.states.onboarding import CreateBudgetStates, JoinBudgetStates
 from core.settings_app import app_settings
 from services.budget_service import BudgetServiceError, create_first_budget
@@ -177,13 +176,21 @@ async def cancel_callback(callback: CallbackQuery, state: FSMContext) -> None:
 
 @router.message(CreateBudgetStates.name)
 async def budget_name_step(message: Message, state: FSMContext) -> None:
+    if (message.text or "").strip().casefold() == "назад":
+        await state.clear()
+        await message.answer(build_start_message())
+        await message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
+        return
     name = (message.text or "").strip()
     if not name:
         await message.answer("Название не должно быть пустым. Попробуй ещё раз.")
         return
     await state.update_data(name=name)
     await state.set_state(CreateBudgetStates.base_currency)
-    await message.answer("Базовая валюта (3 буквы, например RUB):", reply_markup=build_cancel_reply_keyboard())
+    await message.answer(
+        "Базовая валюта (3 буквы, например RUB):",
+        reply_markup=build_cancel_back_reply_keyboard(),
+    )
 
 
 @router.message(JoinBudgetStates.token)
@@ -245,6 +252,11 @@ async def accept_invite_callback(
 
 @router.message(CreateBudgetStates.base_currency)
 async def budget_base_currency_step(message: Message, state: FSMContext) -> None:
+    if (message.text or "").strip().casefold() == "назад":
+        await state.set_state(CreateBudgetStates.name)
+        await state.update_data(base_currency=None, aux_currency_1=None, aux_currency_2=None, timezone=None)
+        await message.answer("Как назовём бюджет?", reply_markup=build_cancel_reply_keyboard())
+        return
     base_currency = (message.text or "").strip().upper()
     if len(base_currency) != 3:
         await message.answer("Нужно 3 буквы кода валюты (например, EUR).")
@@ -253,32 +265,30 @@ async def budget_base_currency_step(message: Message, state: FSMContext) -> None
     await state.set_state(CreateBudgetStates.aux_currency_1)
     await message.answer(
         "Первая вспомогательная валюта (или пропусти):",
-        reply_markup=build_skip_aux_keyboard(),
+        reply_markup=build_aux_currency_reply_keyboard(),
     )
-
-
-@router.callback_query(F.data == SKIP_AUX_CURRENCY, CreateBudgetStates.aux_currency_1)
-async def skip_aux_currency_1(callback: CallbackQuery, state: FSMContext) -> None:
-    await state.update_data(aux_currency_1=None)
-    await state.set_state(CreateBudgetStates.aux_currency_2)
-    await callback.message.answer(
-        "Вторая вспомогательная валюта (или пропусти):",
-        reply_markup=build_skip_aux_keyboard(),
-    )
-    await _safe_callback_answer(callback)
 
 
 @router.message(CreateBudgetStates.aux_currency_1)
 async def budget_aux_currency_1_step(message: Message, state: FSMContext) -> None:
-    if (message.text or "").strip().casefold() == "пропустить":
+    text = (message.text or "").strip()
+    if text.casefold() == "назад":
+        await state.set_state(CreateBudgetStates.base_currency)
+        await state.update_data(aux_currency_1=None, aux_currency_2=None, timezone=None)
+        await message.answer(
+            "Базовая валюта (3 буквы, например RUB):",
+            reply_markup=build_cancel_back_reply_keyboard(),
+        )
+        return
+    if text.casefold() == "пропустить":
         await state.update_data(aux_currency_1=None)
         await state.set_state(CreateBudgetStates.aux_currency_2)
         await message.answer(
             "Вторая вспомогательная валюта (или пропусти):",
-            reply_markup=build_skip_aux_keyboard(),
+            reply_markup=build_aux_currency_reply_keyboard(),
         )
         return
-    aux_currency = (message.text or "").strip().upper()
+    aux_currency = text.upper()
     if len(aux_currency) != 3:
         await message.answer("Нужно 3 буквы кода валюты или нажми «Пропустить».")
         return
@@ -286,32 +296,30 @@ async def budget_aux_currency_1_step(message: Message, state: FSMContext) -> Non
     await state.set_state(CreateBudgetStates.aux_currency_2)
     await message.answer(
         "Вторая вспомогательная валюта (или пропусти):",
-        reply_markup=build_skip_aux_keyboard(),
+        reply_markup=build_aux_currency_reply_keyboard(),
     )
-
-
-@router.callback_query(F.data == SKIP_AUX_CURRENCY, CreateBudgetStates.aux_currency_2)
-async def skip_aux_currency_2(callback: CallbackQuery, state: FSMContext) -> None:
-    await state.update_data(aux_currency_2=None)
-    await state.set_state(CreateBudgetStates.timezone)
-    await callback.message.answer(
-        "Таймзона бюджета (IANA, например Europe/Belgrade):",
-        reply_markup=build_default_timezone_keyboard(app_settings.default_timezone),
-    )
-    await _safe_callback_answer(callback)
 
 
 @router.message(CreateBudgetStates.aux_currency_2)
 async def budget_aux_currency_2_step(message: Message, state: FSMContext) -> None:
-    if (message.text or "").strip().casefold() == "пропустить":
+    text = (message.text or "").strip()
+    if text.casefold() == "назад":
+        await state.set_state(CreateBudgetStates.aux_currency_1)
+        await state.update_data(aux_currency_2=None, timezone=None)
+        await message.answer(
+            "Первая вспомогательная валюта (или пропусти):",
+            reply_markup=build_aux_currency_reply_keyboard(),
+        )
+        return
+    if text.casefold() == "пропустить":
         await state.update_data(aux_currency_2=None)
         await state.set_state(CreateBudgetStates.timezone)
         await message.answer(
             "Таймзона бюджета (IANA, например Europe/Belgrade):",
-            reply_markup=build_default_timezone_keyboard(app_settings.default_timezone),
+            reply_markup=build_timezone_reply_keyboard(app_settings.default_timezone),
         )
         return
-    aux_currency = (message.text or "").strip().upper()
+    aux_currency = text.upper()
     if len(aux_currency) != 3:
         await message.answer("Нужно 3 буквы кода валюты или нажми «Пропустить».")
         return
@@ -319,20 +327,25 @@ async def budget_aux_currency_2_step(message: Message, state: FSMContext) -> Non
     await state.set_state(CreateBudgetStates.timezone)
     await message.answer(
         "Таймзона бюджета (IANA, например Europe/Belgrade):",
-        reply_markup=build_default_timezone_keyboard(app_settings.default_timezone),
+        reply_markup=build_timezone_reply_keyboard(app_settings.default_timezone),
     )
-
-
-@router.callback_query(F.data == USE_DEFAULT_TIMEZONE, CreateBudgetStates.timezone)
-async def use_default_timezone(callback: CallbackQuery, state: FSMContext) -> None:
-    await state.update_data(timezone=app_settings.default_timezone)
-    await _send_budget_summary(callback.message, state)
-    await _safe_callback_answer(callback)
 
 
 @router.message(CreateBudgetStates.timezone)
 async def budget_timezone_step(message: Message, state: FSMContext) -> None:
-    timezone = (message.text or "").strip()
+    text = (message.text or "").strip()
+    if text.casefold() == "назад":
+        await state.set_state(CreateBudgetStates.aux_currency_2)
+        await message.answer(
+            "Вторая вспомогательная валюта (или пропусти):",
+            reply_markup=build_aux_currency_reply_keyboard(),
+        )
+        return
+    if text == f"Оставить {app_settings.default_timezone}":
+        await state.update_data(timezone=app_settings.default_timezone)
+        await _send_budget_summary(message, state)
+        return
+    timezone = text
     if not timezone:
         await message.answer("Таймзона не должна быть пустой.")
         return
@@ -390,6 +403,16 @@ async def confirm_budget(callback: CallbackQuery, state: FSMContext, session: As
 
     await state.clear()
     await callback.message.answer("✅ Бюджет создан.", reply_markup=ReplyKeyboardRemove())
+    await _safe_callback_answer(callback)
+
+
+@router.callback_query(F.data == "onboarding:edit_budget", CreateBudgetStates.confirm)
+async def edit_budget(callback: CallbackQuery, state: FSMContext) -> None:
+    await state.set_state(CreateBudgetStates.timezone)
+    await callback.message.answer(
+        "Таймзона бюджета (IANA, например Europe/Belgrade):",
+        reply_markup=build_timezone_reply_keyboard(app_settings.default_timezone),
+    )
     await _safe_callback_answer(callback)
 
 

@@ -100,11 +100,27 @@ async def budgets_menu_back(callback: CallbackQuery) -> None:
     await _safe_callback_answer(callback)
 
 
+@router.callback_query(F.data == "budgets:menu:close")
+async def budgets_menu_close(callback: CallbackQuery) -> None:
+    from bot.keyboards.main_menu import build_main_menu_keyboard
+
+    await callback.message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
+    await _safe_callback_answer(callback)
+
+
 @router.callback_query(F.data == "budgets:close")
 async def budgets_close(callback: CallbackQuery) -> None:
     from bot.keyboards.main_menu import build_main_menu_keyboard
 
     await callback.message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
+    await _safe_callback_answer(callback)
+
+
+@router.callback_query(F.data == "budgets:list:back")
+async def budgets_list_back(callback: CallbackQuery) -> None:
+    from bot.keyboards.budgets_menu import build_budgets_menu_keyboard
+
+    await callback.message.answer("Меню бюджетов:", reply_markup=build_budgets_menu_keyboard())
     await _safe_callback_answer(callback)
 
 
@@ -132,12 +148,12 @@ async def budgets_open(callback: CallbackQuery, session: AsyncSession) -> None:
     can_set_default = active_budget_id is None or str(active_budget_id) != budget_id
     await callback.message.answer(
         f"Бюджет: {budget.name}\nID:{budget.id}",
-        reply_markup=build_budget_detail_keyboard(can_set_default),
+        reply_markup=build_budget_detail_keyboard(str(budget.id), can_set_default),
     )
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data == "budget:set_default")
+@router.callback_query(F.data.startswith("budget:set_default:"))
 async def budget_set_default(callback: CallbackQuery, session: AsyncSession) -> None:
     if callback.from_user is None:
         await _safe_callback_answer(callback)
@@ -149,17 +165,13 @@ async def budget_set_default(callback: CallbackQuery, session: AsyncSession) -> 
         first_name=callback.from_user.first_name,
         last_name=callback.from_user.last_name,
     )
-    budget_id = _extract_budget_id(callback.message.text or "")
-    if budget_id is None:
-        await callback.message.answer("Не удалось определить бюджет.")
-        await _safe_callback_answer(callback)
-        return
-    budget = await set_active_budget(session, user.id, budget_id)
+    budget_id = callback.data.split("budget:set_default:", 1)[1]
+    budget = await set_active_budget(session, user.id, uuid.UUID(budget_id))
     await callback.message.answer(f"Бюджет по умолчанию: {budget.name}")
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data == "budget:participants")
+@router.callback_query(F.data.startswith("budget:participants:"))
 async def budget_participants(callback: CallbackQuery, session: AsyncSession) -> None:
     if callback.from_user is None:
         await _safe_callback_answer(callback)
@@ -171,11 +183,7 @@ async def budget_participants(callback: CallbackQuery, session: AsyncSession) ->
         first_name=callback.from_user.first_name,
         last_name=callback.from_user.last_name,
     )
-    budget_id = _extract_budget_id(callback.message.text or "")
-    if budget_id is None:
-        await callback.message.answer("Не удалось определить бюджет.")
-        await _safe_callback_answer(callback)
-        return
+    budget_id = callback.data.split("budget:participants:", 1)[1]
     try:
         items = await list_active_participants_for_budget(session, user.id, budget_id)
     except ParticipantsServiceError as exc:
@@ -196,7 +204,9 @@ async def budget_participants(callback: CallbackQuery, session: AsyncSession) ->
             )
     await callback.message.answer(
         "\n".join(lines),
-        reply_markup=build_participants_keyboard(keyboard_items),
+        reply_markup=build_participants_keyboard(
+            keyboard_items, f"budget:back:{budget_id}", budget_id
+        ),
     )
     await _safe_callback_answer(callback)
 
@@ -214,15 +224,14 @@ async def budget_participant_remove(callback: CallbackQuery, session: AsyncSessi
         last_name=callback.from_user.last_name,
     )
     participant_id = callback.data.split("participants:remove:", 1)[1]
-    budget_id = _extract_budget_id(callback.message.text or "")
-    if budget_id is None:
-        await callback.message.answer("Не удалось определить бюджет.")
-        await _safe_callback_answer(callback)
-        return
+    payload = callback.data.split("participants:remove:", 1)[1]
+    participant_id, budget_id = payload.split(":", 1)
     try:
         await callback.message.answer(
             "Удалить участника?",
-            reply_markup=build_confirm_remove_keyboard(participant_id),
+            reply_markup=build_confirm_remove_keyboard(
+                participant_id, f"budget:back:{budget_id}", budget_id
+            ),
         )
     except ParticipantsServiceError as exc:
         await callback.message.answer(f"Не удалось удалить: {exc}")
@@ -241,15 +250,11 @@ async def budget_participant_confirm(callback: CallbackQuery, session: AsyncSess
         first_name=callback.from_user.first_name,
         last_name=callback.from_user.last_name,
     )
-    participant_id = callback.data.split("participants:confirm:", 1)[1]
-    budget_id = _extract_budget_id(callback.message.text or "")
-    if budget_id is None:
-        await callback.message.answer("Не удалось определить бюджет.")
-        await _safe_callback_answer(callback)
-        return
+    payload = callback.data.split("participants:confirm:", 1)[1]
+    participant_id, budget_id = payload.split(":", 1)
     try:
         await remove_participant_from_budget(
-            session, user.id, budget_id, uuid.UUID(participant_id)
+            session, user.id, uuid.UUID(budget_id), uuid.UUID(participant_id)
         )
     except ParticipantsServiceError as exc:
         await callback.message.answer(f"Не удалось удалить: {exc}")
@@ -259,7 +264,7 @@ async def budget_participant_confirm(callback: CallbackQuery, session: AsyncSess
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data == "budget:invite")
+@router.callback_query(F.data.startswith("budget:invite:"))
 async def budget_invite(callback: CallbackQuery, session: AsyncSession) -> None:
     if callback.from_user is None:
         await _safe_callback_answer(callback)
@@ -288,21 +293,22 @@ async def budget_invite(callback: CallbackQuery, session: AsyncSession) -> None:
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data == "budget:archive")
+@router.callback_query(F.data.startswith("budget:archive:"))
 async def budget_archive(callback: CallbackQuery) -> None:
+    budget_id = callback.data.split("budget:archive:", 1)[1]
     await callback.message.answer(
         "Архивировать бюджет?",
-        reply_markup=build_archive_confirm_keyboard(),
+        reply_markup=build_archive_confirm_keyboard(budget_id),
     )
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data == "budget:archive_cancel")
+@router.callback_query(F.data.startswith("budget:archive_cancel:"))
 async def budget_archive_cancel(callback: CallbackQuery) -> None:
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data == "budget:archive_confirm")
+@router.callback_query(F.data.startswith("budget:archive_confirm:"))
 async def budget_archive_confirm(callback: CallbackQuery, session: AsyncSession) -> None:
     if callback.from_user is None:
         await _safe_callback_answer(callback)
@@ -314,11 +320,7 @@ async def budget_archive_confirm(callback: CallbackQuery, session: AsyncSession)
         first_name=callback.from_user.first_name,
         last_name=callback.from_user.last_name,
     )
-    budget_id = _extract_budget_id(callback.message.text or "")
-    if budget_id is None:
-        await callback.message.answer("Не удалось определить бюджет.")
-        await _safe_callback_answer(callback)
-        return
+    budget_id = callback.data.split("budget:archive_confirm:", 1)[1]
     await callback.message.answer("Архивация будет добавлена позже.")
     await _safe_callback_answer(callback)
 
@@ -331,16 +333,32 @@ async def budget_back(callback: CallbackQuery) -> None:
     await _safe_callback_answer(callback)
 
 
-def _extract_budget_id(text: str) -> uuid.UUID | None:
-    if not text.startswith("Бюджет: "):
-        return None
-    parts = text.split("ID:", 1)
-    if len(parts) != 2:
-        return None
+@router.callback_query(F.data.startswith("budget:back:"))
+async def budget_back_to_detail(callback: CallbackQuery, session: AsyncSession) -> None:
+    if callback.from_user is None:
+        await _safe_callback_answer(callback)
+        return
+    budget_id = callback.data.split("budget:back:", 1)[1]
+    user = await ensure_user(
+        session=session,
+        telegram_user_id=callback.from_user.id,
+        telegram_username=callback.from_user.username,
+        first_name=callback.from_user.first_name,
+        last_name=callback.from_user.last_name,
+    )
     try:
-        return uuid.UUID(parts[1].strip())
-    except ValueError:
-        return None
+        budget = await get_budget_detail(session, user.id, uuid.UUID(budget_id))
+    except ActiveBudgetServiceError as exc:
+        await callback.message.answer(f"Не удалось открыть бюджет: {exc}")
+        await _safe_callback_answer(callback)
+        return
+    active_budget_id = await get_active_budget_id(session, user.id)
+    can_set_default = active_budget_id is None or str(active_budget_id) != budget_id
+    await callback.message.answer(
+        f"Бюджет: {budget.name}\nID:{budget.id}",
+        reply_markup=build_budget_detail_keyboard(str(budget.id), can_set_default),
+    )
+    await _safe_callback_answer(callback)
 
 
 async def _safe_callback_answer(callback: CallbackQuery) -> None:

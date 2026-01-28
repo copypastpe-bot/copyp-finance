@@ -1,4 +1,4 @@
-from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
+from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 
 CREATE_BUDGET_CALLBACK = "onboarding:create_budget"
 JOIN_BUDGET_CALLBACK = "onboarding:join_budget"
@@ -47,4 +47,23 @@ def build_default_timezone_keyboard(default_tz: str) -> InlineKeyboardMarkup:
                 )
             ]
         ]
+    )
+
+
+def build_aux_currency_reply_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="Пропустить"), KeyboardButton(text="Назад"), KeyboardButton(text="Отмена")]],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+    )
+
+
+def build_timezone_reply_keyboard(default_tz: str) -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=f"Оставить {default_tz}")],
+            [KeyboardButton(text="Назад"), KeyboardButton(text="Отмена")],
+        ],
+        resize_keyboard=True,
+        one_time_keyboard=True,
     )
