@@ -3,6 +3,7 @@ from aiogram.filters import CommandStart
 from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from bot.keyboards.main_menu import build_main_menu_keyboard
 from bot.keyboards.onboarding import build_start_keyboard
 from aiogram.fsm.context import FSMContext
 
@@ -43,6 +44,7 @@ async def start_handler(message: Message, session: AsyncSession, state: FSMConte
 
     response_text = build_start_message()
     await message.answer(response_text, reply_markup=build_start_keyboard())
+    await message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
 
 
 def _extract_invite_token(text: str) -> str | None:
