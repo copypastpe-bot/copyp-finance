@@ -67,6 +67,22 @@ async def create_budget_callback(
     await _safe_callback_answer(callback)
 
 
+@router.message(F.text.casefold() == "создать бюджет")
+async def create_budget_message(message: Message, state: FSMContext, session: AsyncSession) -> None:
+    if message.from_user is None:
+        return
+    user = await ensure_user(
+        session=session,
+        telegram_user_id=message.from_user.id,
+        telegram_username=message.from_user.username,
+        first_name=message.from_user.first_name,
+        last_name=message.from_user.last_name,
+    )
+    await state.update_data(owner_user_id=str(user.id))
+    await state.set_state(CreateBudgetStates.name)
+    await message.answer("Как назовём бюджет?", reply_markup=build_cancel_reply_keyboard())
+
+
 @router.callback_query(F.data == JOIN_BUDGET_CALLBACK)
 async def join_budget_callback(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(JoinBudgetStates.token)
@@ -75,6 +91,15 @@ async def join_budget_callback(callback: CallbackQuery, state: FSMContext) -> No
         reply_markup=build_cancel_reply_keyboard(),
     )
     await _safe_callback_answer(callback)
+
+
+@router.message(F.text.casefold() == "присоединиться")
+async def join_budget_message(message: Message, state: FSMContext) -> None:
+    await state.set_state(JoinBudgetStates.token)
+    await message.answer(
+        "Пришли инвайт-ссылку или код приглашения.",
+        reply_markup=build_cancel_reply_keyboard(),
+    )
 
 
 @router.callback_query(F.data == INVITE_BUDGET_CALLBACK)

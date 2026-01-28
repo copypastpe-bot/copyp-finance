@@ -8,7 +8,7 @@ def build_active_budget_keyboard(items: list[dict[str, str]]) -> InlineKeyboardM
             [
                 InlineKeyboardButton(
                     text=item["name"],
-                    callback_data=f"budgets:set:{item['budget_id']}",
+                    callback_data=f"budgets:open:{item['budget_id']}",
                 )
             ]
         )

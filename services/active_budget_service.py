@@ -61,6 +61,31 @@ async def set_active_budget(
     return budget
 
 
+async def get_active_budget_id(session: AsyncSession, user_id: uuid.UUID) -> uuid.UUID | None:
+    result = await session.execute(
+        select(User.active_budget_id).where(User.id == user_id)
+    )
+    return result.scalar_one_or_none()
+
+
+async def get_budget_detail(
+    session: AsyncSession, user_id: uuid.UUID, budget_id: uuid.UUID
+) -> Budget:
+    membership = await session.execute(
+        select(BudgetMembership).where(
+            BudgetMembership.user_id == user_id,
+            BudgetMembership.budget_id == budget_id,
+            BudgetMembership.is_active.is_(True),
+        )
+    )
+    if membership.scalar_one_or_none() is None:
+        raise ActiveBudgetServiceError("Ты не участник этого бюджета.")
+    budget = await session.get(Budget, budget_id)
+    if budget is None:
+        raise ActiveBudgetServiceError("Бюджет не найден.")
+    return budget
+
+
 async def get_active_budget_name(session: AsyncSession, user_id: uuid.UUID) -> str | None:
     result = await session.execute(
         select(Budget.name)
