@@ -45,14 +45,16 @@ async def active_budget_list(callback: CallbackQuery, session: AsyncSession) -> 
     active_budget_id = await get_active_budget_id(session, user.id)
     items = await list_user_budgets(session, user.id)
     if not items:
-        await callback.message.answer("Бюджетов нет.")
+        await _edit_or_answer(callback, "Бюджетов нет.")
         await _safe_callback_answer(callback)
         return
     for item in items:
         if active_budget_id is not None and item["budget_id"] == str(active_budget_id):
             item["name"] = f"⭐ {item['name']}"
-    await callback.message.answer(
-        "Мои бюджеты:", reply_markup=build_active_budget_keyboard(items)
+    await _edit_or_answer(
+        callback,
+        "Мои бюджеты:",
+        reply_markup=build_active_budget_keyboard(items),
     )
     await _safe_callback_answer(callback)
 
@@ -78,14 +80,19 @@ async def budgets_menu_create(
     )
     await state.update_data(owner_user_id=str(user.id))
     await state.set_state(CreateBudgetStates.name)
-    await callback.message.answer("Как назовём бюджет?", reply_markup=build_cancel_reply_keyboard())
+    await _edit_or_answer(
+        callback,
+        "Как назовём бюджет?",
+        reply_markup=build_cancel_reply_keyboard(),
+    )
     await _safe_callback_answer(callback)
 
 
 @router.callback_query(F.data == "budgets:menu:join")
 async def budgets_menu_join(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(JoinBudgetStates.token)
-    await callback.message.answer(
+    await _edit_or_answer(
+        callback,
         "Пришли инвайт-ссылку или код приглашения.",
         reply_markup=build_cancel_reply_keyboard(),
     )
@@ -120,7 +127,11 @@ async def budgets_close(callback: CallbackQuery) -> None:
 async def budgets_list_back(callback: CallbackQuery) -> None:
     from bot.keyboards.budgets_menu import build_budgets_menu_keyboard
 
-    await callback.message.answer("Меню бюджетов:", reply_markup=build_budgets_menu_keyboard())
+    await _edit_or_answer(
+        callback,
+        "Меню бюджетов:",
+        reply_markup=build_budgets_menu_keyboard(),
+    )
     await _safe_callback_answer(callback)
 
 
@@ -146,7 +157,8 @@ async def budgets_open(callback: CallbackQuery, session: AsyncSession) -> None:
 
     active_budget_id = await get_active_budget_id(session, user.id)
     can_set_default = active_budget_id is None or str(active_budget_id) != budget_id
-    await callback.message.answer(
+    await _edit_or_answer(
+        callback,
         f"Бюджет: {budget.name}\nID:{budget.id}",
         reply_markup=build_budget_detail_keyboard(str(budget.id), can_set_default),
     )
@@ -167,7 +179,7 @@ async def budget_set_default(callback: CallbackQuery, session: AsyncSession) -> 
     )
     budget_id = callback.data.split("budget:set_default:", 1)[1]
     budget = await set_active_budget(session, user.id, uuid.UUID(budget_id))
-    await callback.message.answer(f"Бюджет по умолчанию: {budget.name}")
+    await _edit_or_answer(callback, f"Бюджет по умолчанию: {budget.name}")
     await _safe_callback_answer(callback)
 
 
@@ -191,7 +203,7 @@ async def budget_participants(callback: CallbackQuery, session: AsyncSession) ->
         await _safe_callback_answer(callback)
         return
     if not items:
-        await callback.message.answer("Участников нет.")
+        await _edit_or_answer(callback, "Участников нет.")
         await _safe_callback_answer(callback)
         return
     lines = ["👥 Участники\n"]
@@ -202,7 +214,8 @@ async def budget_participants(callback: CallbackQuery, session: AsyncSession) ->
             keyboard_items.append(
                 {"user_id": item["user_id"], "username": item["username"]}
             )
-    await callback.message.answer(
+    await _edit_or_answer(
+        callback,
         "\n".join(lines),
         reply_markup=build_participants_keyboard(
             keyboard_items, f"budget:back:{budget_id}", budget_id
@@ -227,7 +240,8 @@ async def budget_participant_remove(callback: CallbackQuery, session: AsyncSessi
     payload = callback.data.split("participants:remove:", 1)[1]
     participant_id, budget_id = payload.split(":", 1)
     try:
-        await callback.message.answer(
+        await _edit_or_answer(
+            callback,
             "Удалить участника?",
             reply_markup=build_confirm_remove_keyboard(
                 participant_id, f"budget:back:{budget_id}", budget_id
@@ -260,7 +274,7 @@ async def budget_participant_confirm(callback: CallbackQuery, session: AsyncSess
         await callback.message.answer(f"Не удалось удалить: {exc}")
         await _safe_callback_answer(callback)
         return
-    await callback.message.answer("✅ Участник удалён.")
+    await _edit_or_answer(callback, "✅ Участник удалён.")
     await _safe_callback_answer(callback)
 
 
@@ -280,13 +294,14 @@ async def budget_invite(callback: CallbackQuery, session: AsyncSession) -> None:
         invite = await create_invite_for_owner(session, user.id)
         bot_username = (await callback.bot.get_me()).username
         if not bot_username:
-            await callback.message.answer("Не удалось получить имя бота.")
-            await _safe_callback_answer(callback)
-            return
+        await _edit_or_answer(callback, "Не удалось получить имя бота.")
+        await _safe_callback_answer(callback)
+        return
         link = f"https://t.me/{bot_username}?start=invite_{invite.token}"
-        await callback.message.answer(
+        await _edit_or_answer(
+            callback,
             "Готово 👇\n\n"
-            f"Ссылка действует 24 часа и используется один раз:\n{link}"
+            f"Ссылка действует 24 часа и используется один раз:\n{link}",
         )
     except Exception as exc:
         await callback.message.answer(f"Не удалось создать приглашение: {exc}")
@@ -296,7 +311,8 @@ async def budget_invite(callback: CallbackQuery, session: AsyncSession) -> None:
 @router.callback_query(F.data.startswith("budget:archive:"))
 async def budget_archive(callback: CallbackQuery) -> None:
     budget_id = callback.data.split("budget:archive:", 1)[1]
-    await callback.message.answer(
+    await _edit_or_answer(
+        callback,
         "Архивировать бюджет?",
         reply_markup=build_archive_confirm_keyboard(budget_id),
     )
@@ -321,7 +337,7 @@ async def budget_archive_confirm(callback: CallbackQuery, session: AsyncSession)
         last_name=callback.from_user.last_name,
     )
     budget_id = callback.data.split("budget:archive_confirm:", 1)[1]
-    await callback.message.answer("Архивация будет добавлена позже.")
+    await _edit_or_answer(callback, "Архивация будет добавлена позже.")
     await _safe_callback_answer(callback)
 
 
@@ -351,7 +367,8 @@ async def budget_back_to_detail(callback: CallbackQuery, session: AsyncSession) 
         return
     active_budget_id = await get_active_budget_id(session, user.id)
     can_set_default = active_budget_id is None or str(active_budget_id) != budget_id
-    await callback.message.answer(
+    await _edit_or_answer(
+        callback,
         f"Бюджет: {budget.name}\nID:{budget.id}",
         reply_markup=build_budget_detail_keyboard(str(budget.id), can_set_default),
     )
@@ -371,3 +388,14 @@ async def _safe_callback_answer(callback: CallbackQuery) -> None:
         await callback.answer()
     except TelegramBadRequest:
         return
+
+
+async def _edit_or_answer(
+    callback: CallbackQuery,
+    text: str,
+    reply_markup=None,
+) -> None:
+    try:
+        await callback.message.edit_text(text, reply_markup=reply_markup)
+    except TelegramBadRequest:
+        await callback.message.answer(text, reply_markup=reply_markup)
