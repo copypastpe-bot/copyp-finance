@@ -294,9 +294,9 @@ async def budget_invite(callback: CallbackQuery, session: AsyncSession) -> None:
         invite = await create_invite_for_owner(session, user.id)
         bot_username = (await callback.bot.get_me()).username
         if not bot_username:
-        await _edit_or_answer(callback, "Не удалось получить имя бота.")
-        await _safe_callback_answer(callback)
-        return
+            await _edit_or_answer(callback, "Не удалось получить имя бота.")
+            await _safe_callback_answer(callback)
+            return
         link = f"https://t.me/{bot_username}?start=invite_{invite.token}"
         await _edit_or_answer(
             callback,
