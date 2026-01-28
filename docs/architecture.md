@@ -15,7 +15,7 @@ Telegram-бот для учёта личных/семейных финансов
 ### Backend / Business logic
 - **Python 3.12**
 - Слои:
-  - handlers (в bot/) — минимальная логика, маршрутизация
+  - handlers (в bot/features/) — минимальная логика, маршрутизация
   - services — бизнес-правила, транзакции, валидации, сценарии
 
 ### Database
@@ -125,7 +125,7 @@ Services:
 ---
 
 ## Границы ответственности каталогов (в терминах проекта)
-- `bot/` — Telegram слой (handlers/routers/middlewares)
+- `bot/` — Telegram слой (features/*/router.py, keyboards.py, middlewares)
 - `services/` — бизнес-логика (сценарии и правила)
 - `db/` — ORM-модели, engine, sessionmaker, базовые утилиты доступа к данным
 - `core/` — настройки, логирование, общие утилиты инфраструктуры
@@ -141,4 +141,3 @@ Services:
    - какие команды/handlers появятся
 2. Сначала модели + миграции, затем сервисы, затем handlers
 3. Любые изменения структуры папок фиксируются в `docs/project_structure.md`
-

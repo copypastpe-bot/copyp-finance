@@ -29,7 +29,7 @@ If the repository uses different filenames (e.g. `finance_bot_ux_specification_*
 
 ## Non-negotiable engineering constraints
 1. **No business logic in Telegram handlers**
-   - `bot/` handlers/routers must only: parse input → call service → format response.
+   - `bot/` feature routers must only: parse input → call service → format response.
    - No SQL queries in handlers.
 
 2. **DB changes only via Alembic**
