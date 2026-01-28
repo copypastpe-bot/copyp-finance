@@ -6,12 +6,17 @@ from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.keyboards.budgets_menu import build_budgets_menu_keyboard
-from bot.keyboards.budgets import build_active_budget_keyboard
-from bot.keyboards.budget_detail import build_archive_confirm_keyboard, build_budget_detail_keyboard
-from bot.keyboards.participants import build_confirm_remove_keyboard, build_participants_keyboard
-from bot.keyboards.common import build_cancel_reply_keyboard
-from bot.states.onboarding import CreateBudgetStates, JoinBudgetStates
+from bot.features.budgets.keyboards import (
+    build_active_budget_keyboard,
+    build_archive_confirm_keyboard,
+    build_budget_detail_keyboard,
+    build_budgets_menu_keyboard,
+    build_confirm_remove_keyboard,
+    build_participants_keyboard,
+)
+from bot.features.onboarding.keyboards import build_cancel_reply_keyboard
+from bot.features.onboarding.states import CreateBudgetStates, JoinBudgetStates
+from bot.utils.callback_data import decode_uuid
 from services.active_budget_service import (
     ActiveBudgetServiceError,
     get_active_budget_id,
@@ -22,16 +27,136 @@ from services.active_budget_service import (
 from services.invite_service import create_invite_for_owner
 from services.participants_service import (
     ParticipantsServiceError,
+    get_participant_display,
+    list_active_participants,
     list_active_participants_for_budget,
+    remove_participant,
     remove_participant_from_budget,
 )
 from services.user_service import ensure_user
-from bot.utils.callback_data import decode_uuid
 
+participants_router = Router()
+budgets_router = Router()
 router = Router()
+router.include_router(participants_router)
+router.include_router(budgets_router)
 
 
-@router.callback_query(F.data == "budgets:active")
+@participants_router.callback_query(F.data == "participants:list")
+async def participants_list(callback: CallbackQuery, session: AsyncSession) -> None:
+    if callback.from_user is None:
+        await _safe_callback_answer(callback)
+        return
+    user = await ensure_user(
+        session=session,
+        telegram_user_id=callback.from_user.id,
+        telegram_username=callback.from_user.username,
+        first_name=callback.from_user.first_name,
+        last_name=callback.from_user.last_name,
+    )
+    try:
+        items = await list_active_participants(session, user.id)
+    except ParticipantsServiceError as exc:
+        await callback.message.answer(f"Не удалось открыть участников: {exc}")
+        await _safe_callback_answer(callback)
+        return
+
+    if not items:
+        await callback.message.answer("Участников нет.")
+        await _safe_callback_answer(callback)
+        return
+
+    lines = ["👥 Участники\n"]
+    keyboard_items: list[dict[str, str]] = []
+    for item in items:
+        lines.append(f"{item['username']} — {item['name']} ({item['role']})")
+        if item["role"] != "владелец":
+            keyboard_items.append(
+                {"user_id": item["user_id"], "username": item["username"]}
+            )
+
+    text = "\n".join(lines)
+    await callback.message.answer(
+        text, reply_markup=build_participants_keyboard(keyboard_items, None, None)
+    )
+    await _safe_callback_answer(callback)
+
+
+@participants_router.callback_query(F.data.startswith("p:rm:"))
+async def participants_remove(callback: CallbackQuery, session: AsyncSession) -> None:
+    if callback.from_user is None:
+        await _safe_callback_answer(callback)
+        return
+    payload = callback.data.split("p:rm:", 1)[1]
+    if ":" in payload:
+        payload = payload.split(":", 1)[0]
+    participant_id = decode_uuid(payload)
+    user = await ensure_user(
+        session=session,
+        telegram_user_id=callback.from_user.id,
+        telegram_username=callback.from_user.username,
+        first_name=callback.from_user.first_name,
+        last_name=callback.from_user.last_name,
+    )
+    try:
+        display = await get_participant_display(
+            session, user.id, uuid.UUID(participant_id)
+        )
+    except ParticipantsServiceError as exc:
+        await callback.message.answer(f"Не удалось удалить: {exc}")
+        await _safe_callback_answer(callback)
+        return
+    await callback.message.answer(
+        f"Удалить участника?\n{display}",
+        reply_markup=build_confirm_remove_keyboard(str(participant_id), None, None),
+    )
+    await _safe_callback_answer(callback)
+
+
+@participants_router.callback_query(F.data.startswith("p:cf:"))
+async def participants_confirm(callback: CallbackQuery, session: AsyncSession) -> None:
+    if callback.from_user is None:
+        await _safe_callback_answer(callback)
+        return
+    payload = callback.data.split("p:cf:", 1)[1]
+    if ":" in payload:
+        payload = payload.split(":", 1)[0]
+    participant_id = decode_uuid(payload)
+    user = await ensure_user(
+        session=session,
+        telegram_user_id=callback.from_user.id,
+        telegram_username=callback.from_user.username,
+        first_name=callback.from_user.first_name,
+        last_name=callback.from_user.last_name,
+    )
+    try:
+        await remove_participant(
+            session,
+            user.id,
+            participant_id,
+        )
+    except ParticipantsServiceError as exc:
+        await callback.message.answer(f"Не удалось удалить: {exc}")
+        await _safe_callback_answer(callback)
+        return
+    await callback.message.answer("✅ Участник удалён.")
+    await _safe_callback_answer(callback)
+
+
+@participants_router.callback_query(F.data == "participants:close")
+async def participants_close(callback: CallbackQuery) -> None:
+    from bot.features.main_menu.keyboards import build_main_menu_keyboard
+
+    await callback.message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
+    await _safe_callback_answer(callback)
+
+
+@participants_router.callback_query(F.data == "participants:cancel")
+async def participants_cancel(callback: CallbackQuery) -> None:
+    await _safe_callback_answer(callback)
+
+
+@budgets_router.callback_query(F.data == "budgets:active")
 async def active_budget_list(callback: CallbackQuery, session: AsyncSession) -> None:
     if callback.from_user is None:
         await _safe_callback_answer(callback)
@@ -60,12 +185,12 @@ async def active_budget_list(callback: CallbackQuery, session: AsyncSession) -> 
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data == "budgets:menu:my")
+@budgets_router.callback_query(F.data == "budgets:menu:my")
 async def budgets_menu_my(callback: CallbackQuery, session: AsyncSession) -> None:
     await active_budget_list(callback, session)
 
 
-@router.callback_query(F.data == "budgets:menu:create")
+@budgets_router.callback_query(F.data == "budgets:menu:create")
 async def budgets_menu_create(
     callback: CallbackQuery, session: AsyncSession, state: FSMContext
 ) -> None:
@@ -89,7 +214,7 @@ async def budgets_menu_create(
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data == "budgets:menu:join")
+@budgets_router.callback_query(F.data == "budgets:menu:join")
 async def budgets_menu_join(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(JoinBudgetStates.token)
     await _edit_or_answer(
@@ -100,34 +225,32 @@ async def budgets_menu_join(callback: CallbackQuery, state: FSMContext) -> None:
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data == "budgets:menu:back")
+@budgets_router.callback_query(F.data == "budgets:menu:back")
 async def budgets_menu_back(callback: CallbackQuery) -> None:
-    from bot.keyboards.main_menu import build_main_menu_keyboard
+    from bot.features.main_menu.keyboards import build_main_menu_keyboard
 
     await callback.message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data == "budgets:menu:close")
+@budgets_router.callback_query(F.data == "budgets:menu:close")
 async def budgets_menu_close(callback: CallbackQuery) -> None:
-    from bot.keyboards.main_menu import build_main_menu_keyboard
+    from bot.features.main_menu.keyboards import build_main_menu_keyboard
 
     await callback.message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data == "budgets:close")
+@budgets_router.callback_query(F.data == "budgets:close")
 async def budgets_close(callback: CallbackQuery) -> None:
-    from bot.keyboards.main_menu import build_main_menu_keyboard
+    from bot.features.main_menu.keyboards import build_main_menu_keyboard
 
     await callback.message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data == "budgets:list:back")
+@budgets_router.callback_query(F.data == "budgets:list:back")
 async def budgets_list_back(callback: CallbackQuery) -> None:
-    from bot.keyboards.budgets_menu import build_budgets_menu_keyboard
-
     await _edit_or_answer(
         callback,
         "Меню бюджетов:",
@@ -136,7 +259,7 @@ async def budgets_list_back(callback: CallbackQuery) -> None:
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data.startswith("budgets:open:"))
+@budgets_router.callback_query(F.data.startswith("budgets:open:"))
 async def budgets_open(callback: CallbackQuery, session: AsyncSession) -> None:
     if callback.from_user is None:
         await _safe_callback_answer(callback)
@@ -166,7 +289,7 @@ async def budgets_open(callback: CallbackQuery, session: AsyncSession) -> None:
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data.startswith("budget:set_default:"))
+@budgets_router.callback_query(F.data.startswith("budget:set_default:"))
 async def budget_set_default(callback: CallbackQuery, session: AsyncSession) -> None:
     if callback.from_user is None:
         await _safe_callback_answer(callback)
@@ -184,7 +307,7 @@ async def budget_set_default(callback: CallbackQuery, session: AsyncSession) -> 
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data.startswith("budget:participants:"))
+@budgets_router.callback_query(F.data.startswith("budget:participants:"))
 async def budget_participants(callback: CallbackQuery, session: AsyncSession) -> None:
     if callback.from_user is None:
         await _safe_callback_answer(callback)
@@ -225,7 +348,7 @@ async def budget_participants(callback: CallbackQuery, session: AsyncSession) ->
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data.startswith("p:rm:"))
+@budgets_router.callback_query(F.data.startswith("p:rm:"))
 async def budget_participant_remove(callback: CallbackQuery, session: AsyncSession) -> None:
     if callback.from_user is None:
         await _safe_callback_answer(callback)
@@ -258,7 +381,7 @@ async def budget_participant_remove(callback: CallbackQuery, session: AsyncSessi
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data.startswith("p:cf:"))
+@budgets_router.callback_query(F.data.startswith("p:cf:"))
 async def budget_participant_confirm(callback: CallbackQuery, session: AsyncSession) -> None:
     if callback.from_user is None:
         await _safe_callback_answer(callback)
@@ -290,7 +413,7 @@ async def budget_participant_confirm(callback: CallbackQuery, session: AsyncSess
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data.startswith("budget:invite:"))
+@budgets_router.callback_query(F.data.startswith("budget:invite:"))
 async def budget_invite(callback: CallbackQuery, session: AsyncSession) -> None:
     if callback.from_user is None:
         await _safe_callback_answer(callback)
@@ -320,7 +443,7 @@ async def budget_invite(callback: CallbackQuery, session: AsyncSession) -> None:
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data.startswith("budget:archive:"))
+@budgets_router.callback_query(F.data.startswith("budget:archive:"))
 async def budget_archive(callback: CallbackQuery) -> None:
     budget_id = callback.data.split("budget:archive:", 1)[1]
     await _edit_or_answer(
@@ -331,12 +454,12 @@ async def budget_archive(callback: CallbackQuery) -> None:
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data.startswith("budget:archive_cancel:"))
+@budgets_router.callback_query(F.data.startswith("budget:archive_cancel:"))
 async def budget_archive_cancel(callback: CallbackQuery) -> None:
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data.startswith("budget:archive_confirm:"))
+@budgets_router.callback_query(F.data.startswith("budget:archive_confirm:"))
 async def budget_archive_confirm(callback: CallbackQuery, session: AsyncSession) -> None:
     if callback.from_user is None:
         await _safe_callback_answer(callback)
@@ -353,12 +476,12 @@ async def budget_archive_confirm(callback: CallbackQuery, session: AsyncSession)
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data == "budget:back")
+@budgets_router.callback_query(F.data == "budget:back")
 async def budget_back(callback: CallbackQuery, session: AsyncSession) -> None:
     await active_budget_list(callback, session)
 
 
-@router.callback_query(F.data.startswith("budget:back:"))
+@budgets_router.callback_query(F.data.startswith("budget:back:"))
 async def budget_back_to_detail(callback: CallbackQuery, session: AsyncSession) -> None:
     if callback.from_user is None:
         await _safe_callback_answer(callback)
@@ -387,9 +510,9 @@ async def budget_back_to_detail(callback: CallbackQuery, session: AsyncSession) 
     await _safe_callback_answer(callback)
 
 
-@router.callback_query(F.data == "budget:close")
+@budgets_router.callback_query(F.data == "budget:close")
 async def budget_close(callback: CallbackQuery) -> None:
-    from bot.keyboards.main_menu import build_main_menu_keyboard
+    from bot.features.main_menu.keyboards import build_main_menu_keyboard
 
     await callback.message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
     await _safe_callback_answer(callback)

@@ -1,5 +1,7 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 
+CANCEL_CALLBACK = "common:cancel"
+
 CREATE_BUDGET_CALLBACK = "onboarding:create_budget"
 JOIN_BUDGET_CALLBACK = "onboarding:join_budget"
 INVITE_BUDGET_CALLBACK = "onboarding:invite_budget"
@@ -66,4 +68,51 @@ def build_timezone_reply_keyboard(default_tz: str) -> ReplyKeyboardMarkup:
         ],
         resize_keyboard=True,
         one_time_keyboard=True,
+    )
+
+
+def build_cancel_reply_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="Отмена")]],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+        input_field_placeholder="Можно отменить",
+    )
+
+
+def build_cancel_back_reply_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="Назад"), KeyboardButton(text="Отмена")]],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+        input_field_placeholder="Можно отменить",
+    )
+
+
+def build_confirm_inline_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Создать бюджет", callback_data="onboarding:confirm_budget"),
+            ],
+            [
+                InlineKeyboardButton(text="✏️ Исправить", callback_data="onboarding:edit_budget"),
+            ],
+            [
+                InlineKeyboardButton(text="❌ Отмена", callback_data=CANCEL_CALLBACK),
+            ],
+        ]
+    )
+
+
+def build_invite_confirm_keyboard() -> InlineKeyboardMarkup:
+    return InlineKeyboardMarkup(
+        inline_keyboard=[
+            [
+                InlineKeyboardButton(text="✅ Присоединиться", callback_data="onboarding:accept_invite"),
+            ],
+            [
+                InlineKeyboardButton(text="❌ Отмена", callback_data=CANCEL_CALLBACK),
+            ],
+        ]
     )

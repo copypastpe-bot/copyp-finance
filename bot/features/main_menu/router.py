@@ -2,8 +2,7 @@ from aiogram import F, Router
 from aiogram.types import Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from bot.keyboards.budgets import build_active_budget_keyboard
-from bot.keyboards.budgets_menu import build_budgets_menu_keyboard
+from bot.features.budgets.keyboards import build_active_budget_keyboard, build_budgets_menu_keyboard
 from services.active_budget_service import get_active_budget_id, list_user_budgets
 from services.user_service import ensure_user
 
@@ -37,7 +36,7 @@ async def menu_reports(message: Message) -> None:
 
 @router.message(F.text.casefold() == "назад")
 async def menu_back(message: Message) -> None:
-    from bot.keyboards.main_menu import build_main_menu_keyboard
+    from bot.features.main_menu.keyboards import build_main_menu_keyboard
 
     await message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
 
