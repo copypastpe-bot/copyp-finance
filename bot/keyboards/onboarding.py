@@ -19,6 +19,9 @@ def build_start_keyboard() -> InlineKeyboardMarkup:
             [
                 InlineKeyboardButton(text="🔗 Пригласить участника", callback_data=INVITE_BUDGET_CALLBACK),
             ],
+            [
+                InlineKeyboardButton(text="👥 Участники", callback_data="participants:list"),
+            ],
         ]
     )
 

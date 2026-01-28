@@ -6,6 +6,7 @@ from aiogram.fsm.storage.memory import MemoryStorage
 
 from bot.middlewares.db_session import DbSessionMiddleware
 from bot.routers.onboarding import router as onboarding_router
+from bot.routers.participants import router as participants_router
 from bot.routers.start import router as start_router
 from core.settings_app import app_settings
 
@@ -19,6 +20,7 @@ async def main() -> None:
 
     dp.include_router(start_router)
     dp.include_router(onboarding_router)
+    dp.include_router(participants_router)
 
     await dp.start_polling(bot)
 
