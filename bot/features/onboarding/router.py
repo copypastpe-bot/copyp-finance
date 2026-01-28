@@ -229,7 +229,14 @@ async def join_budget_token_step(message: Message, state: FSMContext, session: A
         await message.answer("Не нашёл пользователя. Попробуй /start ещё раз.")
         await state.clear()
         return
-    token = _extract_invite_token(message.text or "")
+    text_raw = message.text or ""
+    text = text_raw.strip()
+    if text.casefold() in {"отмена", "назад"} or text.startswith("/start"):
+        await state.clear()
+        await message.answer(build_start_message())
+        await message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
+        return
+    token = _extract_invite_token(text_raw)
     if token is None:
         await message.answer("Не вижу токен. Пришли ссылку или код вида invite_XXXX.")
         return
