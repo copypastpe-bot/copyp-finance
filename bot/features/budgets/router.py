@@ -15,7 +15,7 @@ from bot.features.budgets.keyboards import (
     build_confirm_remove_keyboard,
     build_participants_keyboard,
 )
-from bot.features.onboarding.keyboards import build_home_reply_keyboard
+from bot.features.main_menu.home import render_root_for_callback
 from bot.features.onboarding.states import CreateBudgetStates, JoinBudgetStates
 from bot.utils.callback_data import decode_uuid
 from services.active_budget_service import (
@@ -145,11 +145,8 @@ async def participants_confirm(callback: CallbackQuery, session: AsyncSession) -
 
 
 @participants_router.callback_query(F.data == "participants:close")
-async def participants_close(callback: CallbackQuery) -> None:
-    from bot.features.main_menu.keyboards import build_main_menu_keyboard
-
-    await callback.message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
-    await _safe_callback_answer(callback)
+async def participants_close(callback: CallbackQuery, session: AsyncSession) -> None:
+    await _return_root(callback, session)
 
 
 @participants_router.callback_query(F.data == "participants:cancel")
@@ -207,10 +204,7 @@ async def budgets_menu_create(
     )
     await state.update_data(owner_user_id=str(user.id))
     await state.set_state(CreateBudgetStates.name)
-    await callback.message.answer(
-        "Как назовём бюджет?",
-        reply_markup=build_home_reply_keyboard(),
-    )
+    await _edit_or_answer(callback, "Как назовём бюджет?")
     await _safe_callback_answer(callback)
 
 
@@ -226,27 +220,18 @@ async def budgets_menu_join(callback: CallbackQuery, state: FSMContext) -> None:
 
 
 @budgets_router.callback_query(F.data == "budgets:menu:back")
-async def budgets_menu_back(callback: CallbackQuery) -> None:
-    from bot.features.main_menu.keyboards import build_main_menu_keyboard
-
-    await callback.message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
-    await _safe_callback_answer(callback)
+async def budgets_menu_back(callback: CallbackQuery, session: AsyncSession) -> None:
+    await _return_root(callback, session)
 
 
 @budgets_router.callback_query(F.data == "budgets:menu:close")
-async def budgets_menu_close(callback: CallbackQuery) -> None:
-    from bot.features.main_menu.keyboards import build_main_menu_keyboard
-
-    await callback.message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
-    await _safe_callback_answer(callback)
+async def budgets_menu_close(callback: CallbackQuery, session: AsyncSession) -> None:
+    await _return_root(callback, session)
 
 
 @budgets_router.callback_query(F.data == "budgets:close")
-async def budgets_close(callback: CallbackQuery) -> None:
-    from bot.features.main_menu.keyboards import build_main_menu_keyboard
-
-    await callback.message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
-    await _safe_callback_answer(callback)
+async def budgets_close(callback: CallbackQuery, session: AsyncSession) -> None:
+    await _return_root(callback, session)
 
 
 @budgets_router.callback_query(F.data == "budgets:list:back")
@@ -511,11 +496,22 @@ async def budget_back_to_detail(callback: CallbackQuery, session: AsyncSession) 
 
 
 @budgets_router.callback_query(F.data == "budget:close")
-async def budget_close(callback: CallbackQuery) -> None:
-    from bot.features.main_menu.keyboards import build_main_menu_keyboard
+async def budget_close(callback: CallbackQuery, session: AsyncSession) -> None:
+    await _return_root(callback, session)
 
-    await callback.message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
-    await _safe_callback_answer(callback)
+
+async def _return_root(callback: CallbackQuery, session: AsyncSession) -> None:
+    if callback.from_user is None:
+        await _safe_callback_answer(callback)
+        return
+    user = await ensure_user(
+        session=session,
+        telegram_user_id=callback.from_user.id,
+        telegram_username=callback.from_user.username,
+        first_name=callback.from_user.first_name,
+        last_name=callback.from_user.last_name,
+    )
+    await render_root_for_callback(callback, session, str(user.id))
 
 
 async def _safe_callback_answer(callback: CallbackQuery) -> None:

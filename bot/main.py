@@ -8,6 +8,7 @@ from aiogram.types import BotCommand
 from bot.features.budgets.router import router as budgets_router
 from bot.features.main_menu.router import router as main_menu_router
 from bot.features.onboarding.router import router as onboarding_router
+from bot.features.settings.router import router as settings_router
 from bot.middlewares.db_session import DbSessionMiddleware
 from core.settings_app import app_settings
 
@@ -21,6 +22,7 @@ async def main() -> None:
         [
             BotCommand(command="start", description="Обновить"),
             BotCommand(command="main_menu", description="Home"),
+            BotCommand(command="settings", description="Настройки"),
         ]
     )
 
@@ -29,6 +31,7 @@ async def main() -> None:
     dp.include_router(onboarding_router)
     dp.include_router(budgets_router)
     dp.include_router(main_menu_router)
+    dp.include_router(settings_router)
 
     await dp.start_polling(bot)
 
