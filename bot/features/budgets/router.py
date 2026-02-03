@@ -207,8 +207,7 @@ async def budgets_menu_create(
     )
     await state.update_data(owner_user_id=str(user.id))
     await state.set_state(CreateBudgetStates.name)
-    await _edit_or_answer(
-        callback,
+    await callback.message.answer(
         "Как назовём бюджет?",
         reply_markup=build_cancel_reply_keyboard(),
     )
