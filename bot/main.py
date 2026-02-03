@@ -20,7 +20,7 @@ async def main() -> None:
     await bot.set_my_commands(
         [
             BotCommand(command="start", description="Обновить"),
-            BotCommand(command="main-menu", description="Home"),
+            BotCommand(command="main_menu", description="Home"),
         ]
     )
 

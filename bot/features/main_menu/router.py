@@ -11,7 +11,7 @@ from services.user_service import ensure_user
 router = Router()
 
 
-@router.message(F.text.startswith("/main-menu"))
+@router.message(F.text.startswith("/main_menu"))
 async def main_menu_command(message: Message) -> None:
     await message.answer(build_start_message())
     await message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
