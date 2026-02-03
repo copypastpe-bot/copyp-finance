@@ -10,4 +10,8 @@ set -a
 source .env.local
 set +a
 
-python -m bot.main
+if [ -x ".venv/bin/python" ]; then
+  exec .venv/bin/python -m bot.main
+fi
+
+exec python3 -m bot.main
