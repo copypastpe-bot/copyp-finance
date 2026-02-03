@@ -5,7 +5,7 @@ from aiogram import F, Router
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.filters import CommandStart
 from aiogram.fsm.context import FSMContext
-from aiogram.types import CallbackQuery, Message, ReplyKeyboardRemove
+from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.features.main_menu.keyboards import build_main_menu_keyboard
@@ -64,7 +64,7 @@ async def start_handler(message: Message, session: AsyncSession, state: FSMConte
             return
 
     response_text = build_start_message()
-    await message.answer(response_text)
+    await message.answer(response_text, reply_markup=build_home_reply_keyboard())
     await message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
 
 
@@ -176,16 +176,16 @@ async def cancel_message(message: Message, state: FSMContext) -> None:
         CreateBudgetStates.timezone.state,
         CreateBudgetStates.confirm.state,
     }:
-        await message.answer(build_start_message())
+        await message.answer(build_start_message(), reply_markup=build_home_reply_keyboard())
         await message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
     else:
-        await message.answer("Действие отменено.", reply_markup=ReplyKeyboardRemove())
+        await message.answer("Действие отменено.", reply_markup=build_home_reply_keyboard())
 
 
 @router.message(F.text == HOME_REPLY_TEXT)
 async def home_message(message: Message, state: FSMContext) -> None:
     await state.clear()
-    await message.answer(build_start_message())
+    await message.answer(build_start_message(), reply_markup=build_home_reply_keyboard())
     await message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
 
 
@@ -203,10 +203,10 @@ async def cancel_callback(callback: CallbackQuery, state: FSMContext) -> None:
         CreateBudgetStates.timezone.state,
         CreateBudgetStates.confirm.state,
     }:
-        await callback.message.answer(build_start_message())
+        await callback.message.answer(build_start_message(), reply_markup=build_home_reply_keyboard())
         await callback.message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
     else:
-        await callback.message.answer("Действие отменено.", reply_markup=ReplyKeyboardRemove())
+        await callback.message.answer("Действие отменено.", reply_markup=build_home_reply_keyboard())
     await _safe_callback_answer(callback)
 
 
@@ -214,7 +214,7 @@ async def cancel_callback(callback: CallbackQuery, state: FSMContext) -> None:
 async def budget_name_step(message: Message, state: FSMContext) -> None:
     if (message.text or "").strip().casefold() in {"назад", HOME_REPLY_TEXT.casefold()}:
         await state.clear()
-        await message.answer(build_start_message())
+        await message.answer(build_start_message(), reply_markup=build_home_reply_keyboard())
         await message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
         return
     name = (message.text or "").strip()
@@ -239,7 +239,7 @@ async def join_budget_token_step(message: Message, state: FSMContext, session: A
     text = text_raw.strip()
     if text.casefold() in {"отмена", "назад", HOME_REPLY_TEXT.casefold()} or text.startswith("/start"):
         await state.clear()
-        await message.answer(build_start_message())
+        await message.answer(build_start_message(), reply_markup=build_home_reply_keyboard())
         await message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
         return
     if text.casefold() == "бюджеты":
@@ -293,7 +293,7 @@ async def accept_invite_callback(
         await _safe_callback_answer(callback)
         return
     await state.clear()
-    await callback.message.answer("✅ Ты присоединился к бюджету.", reply_markup=ReplyKeyboardRemove())
+    await callback.message.answer("✅ Ты присоединился к бюджету.", reply_markup=build_home_reply_keyboard())
     await _safe_callback_answer(callback)
 
 
@@ -449,7 +449,7 @@ async def confirm_budget(callback: CallbackQuery, state: FSMContext, session: As
         return
 
     await state.clear()
-    await callback.message.answer("✅ Бюджет создан.", reply_markup=ReplyKeyboardRemove())
+    await callback.message.answer("✅ Бюджет создан.", reply_markup=build_home_reply_keyboard())
     await _safe_callback_answer(callback)
 
 

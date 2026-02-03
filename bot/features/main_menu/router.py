@@ -3,6 +3,7 @@ from aiogram.types import CallbackQuery, Message
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from bot.features.budgets.keyboards import build_active_budget_keyboard, build_budgets_menu_keyboard
+from bot.features.onboarding.keyboards import build_home_reply_keyboard
 from bot.features.main_menu.keyboards import build_main_menu_keyboard
 from services.start_service import build_start_message
 from services.active_budget_service import get_active_budget_id, list_user_budgets
@@ -13,7 +14,7 @@ router = Router()
 
 @router.message(F.text.startswith("/main_menu"))
 async def main_menu_command(message: Message) -> None:
-    await message.answer(build_start_message())
+    await message.answer(build_start_message(), reply_markup=build_home_reply_keyboard())
     await message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
 
 
