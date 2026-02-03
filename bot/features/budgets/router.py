@@ -15,7 +15,7 @@ from bot.features.budgets.keyboards import (
     build_confirm_remove_keyboard,
     build_participants_keyboard,
 )
-from bot.features.onboarding.keyboards import build_cancel_reply_keyboard
+from bot.features.onboarding.keyboards import build_home_reply_keyboard
 from bot.features.onboarding.states import CreateBudgetStates, JoinBudgetStates
 from bot.utils.callback_data import decode_uuid
 from services.active_budget_service import (
@@ -209,7 +209,7 @@ async def budgets_menu_create(
     await state.set_state(CreateBudgetStates.name)
     await callback.message.answer(
         "Как назовём бюджет?",
-        reply_markup=build_cancel_reply_keyboard(),
+        reply_markup=build_home_reply_keyboard(),
     )
     await _safe_callback_answer(callback)
 

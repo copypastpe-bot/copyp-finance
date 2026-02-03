@@ -89,6 +89,15 @@ def build_cancel_back_reply_keyboard() -> ReplyKeyboardMarkup:
     )
 
 
+def build_home_reply_keyboard() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[[KeyboardButton(text="Главное меню")]],
+        resize_keyboard=True,
+        one_time_keyboard=True,
+        input_field_placeholder="Главное меню",
+    )
+
+
 def build_confirm_inline_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[

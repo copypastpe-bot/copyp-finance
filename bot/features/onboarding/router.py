@@ -15,12 +15,9 @@ from bot.features.onboarding.keyboards import (
     CREATE_BUDGET_CALLBACK,
     INVITE_BUDGET_CALLBACK,
     JOIN_BUDGET_CALLBACK,
-    build_aux_currency_reply_keyboard,
-    build_cancel_back_reply_keyboard,
-    build_cancel_reply_keyboard,
     build_confirm_inline_keyboard,
+    build_home_reply_keyboard,
     build_invite_confirm_keyboard,
-    build_timezone_reply_keyboard,
 )
 from bot.features.onboarding.states import CreateBudgetStates, JoinBudgetStates
 from core.settings_app import app_settings
@@ -92,7 +89,7 @@ async def create_budget_callback(
 
     await callback.message.answer(
         "Как назовём бюджет?",
-        reply_markup=build_cancel_reply_keyboard(),
+        reply_markup=build_home_reply_keyboard(),
     )
     await _safe_callback_answer(callback)
 
@@ -110,7 +107,7 @@ async def create_budget_message(message: Message, state: FSMContext, session: As
     )
     await state.update_data(owner_user_id=str(user.id))
     await state.set_state(CreateBudgetStates.name)
-    await message.answer("Как назовём бюджет?", reply_markup=build_cancel_reply_keyboard())
+    await message.answer("Как назовём бюджет?", reply_markup=build_home_reply_keyboard())
 
 
 @router.callback_query(F.data == JOIN_BUDGET_CALLBACK)
@@ -118,7 +115,7 @@ async def join_budget_callback(callback: CallbackQuery, state: FSMContext) -> No
     await state.set_state(JoinBudgetStates.token)
     await callback.message.answer(
         "Пришли инвайт-ссылку или код приглашения.",
-        reply_markup=build_cancel_reply_keyboard(),
+        reply_markup=build_home_reply_keyboard(),
     )
     await _safe_callback_answer(callback)
 
@@ -128,7 +125,7 @@ async def join_budget_message(message: Message, state: FSMContext) -> None:
     await state.set_state(JoinBudgetStates.token)
     await message.answer(
         "Пришли инвайт-ссылку или код приглашения.",
-        reply_markup=build_cancel_reply_keyboard(),
+        reply_markup=build_home_reply_keyboard(),
     )
 
 
@@ -184,6 +181,13 @@ async def cancel_message(message: Message, state: FSMContext) -> None:
         await message.answer("Действие отменено.", reply_markup=ReplyKeyboardRemove())
 
 
+@router.message(F.text.casefold() == "главное меню")
+async def home_message(message: Message, state: FSMContext) -> None:
+    await state.clear()
+    await message.answer(build_start_message())
+    await message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
+
+
 @router.callback_query(F.data == CANCEL_CALLBACK)
 async def cancel_callback(callback: CallbackQuery, state: FSMContext) -> None:
     current_state = await state.get_state()
@@ -207,7 +211,7 @@ async def cancel_callback(callback: CallbackQuery, state: FSMContext) -> None:
 
 @router.message(CreateBudgetStates.name)
 async def budget_name_step(message: Message, state: FSMContext) -> None:
-    if (message.text or "").strip().casefold() == "назад":
+    if (message.text or "").strip().casefold() in {"назад", "главное меню"}:
         await state.clear()
         await message.answer(build_start_message())
         await message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
@@ -220,7 +224,7 @@ async def budget_name_step(message: Message, state: FSMContext) -> None:
     await state.set_state(CreateBudgetStates.base_currency)
     await message.answer(
         "Базовая валюта (3 буквы, например RUB):",
-        reply_markup=build_cancel_back_reply_keyboard(),
+        reply_markup=build_home_reply_keyboard(),
     )
 
 
@@ -232,7 +236,7 @@ async def join_budget_token_step(message: Message, state: FSMContext, session: A
         return
     text_raw = message.text or ""
     text = text_raw.strip()
-    if text.casefold() in {"отмена", "назад"} or text.startswith("/start"):
+    if text.casefold() in {"отмена", "назад", "главное меню"} or text.startswith("/start"):
         await state.clear()
         await message.answer(build_start_message())
         await message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
@@ -294,10 +298,10 @@ async def accept_invite_callback(
 
 @router.message(CreateBudgetStates.base_currency)
 async def budget_base_currency_step(message: Message, state: FSMContext) -> None:
-    if (message.text or "").strip().casefold() == "назад":
+    if (message.text or "").strip().casefold() in {"назад", "главное меню"}:
         await state.set_state(CreateBudgetStates.name)
         await state.update_data(base_currency=None, aux_currency_1=None, aux_currency_2=None, timezone=None)
-        await message.answer("Как назовём бюджет?", reply_markup=build_cancel_reply_keyboard())
+        await message.answer("Как назовём бюджет?", reply_markup=build_home_reply_keyboard())
         return
     base_currency = (message.text or "").strip().upper()
     if len(base_currency) != 3:
@@ -307,19 +311,19 @@ async def budget_base_currency_step(message: Message, state: FSMContext) -> None
     await state.set_state(CreateBudgetStates.aux_currency_1)
     await message.answer(
         "Первая вспомогательная валюта (или пропусти):",
-        reply_markup=build_aux_currency_reply_keyboard(),
+        reply_markup=build_home_reply_keyboard(),
     )
 
 
 @router.message(CreateBudgetStates.aux_currency_1)
 async def budget_aux_currency_1_step(message: Message, state: FSMContext) -> None:
     text = (message.text or "").strip()
-    if text.casefold() == "назад":
+    if text.casefold() in {"назад", "главное меню"}:
         await state.set_state(CreateBudgetStates.base_currency)
         await state.update_data(aux_currency_1=None, aux_currency_2=None, timezone=None)
         await message.answer(
             "Базовая валюта (3 буквы, например RUB):",
-            reply_markup=build_cancel_back_reply_keyboard(),
+            reply_markup=build_home_reply_keyboard(),
         )
         return
     if text.casefold() == "пропустить":
@@ -327,7 +331,7 @@ async def budget_aux_currency_1_step(message: Message, state: FSMContext) -> Non
         await state.set_state(CreateBudgetStates.aux_currency_2)
         await message.answer(
             "Вторая вспомогательная валюта (или пропусти):",
-            reply_markup=build_aux_currency_reply_keyboard(),
+            reply_markup=build_home_reply_keyboard(),
         )
         return
     aux_currency = text.upper()
@@ -338,19 +342,19 @@ async def budget_aux_currency_1_step(message: Message, state: FSMContext) -> Non
     await state.set_state(CreateBudgetStates.aux_currency_2)
     await message.answer(
         "Вторая вспомогательная валюта (или пропусти):",
-        reply_markup=build_aux_currency_reply_keyboard(),
+        reply_markup=build_home_reply_keyboard(),
     )
 
 
 @router.message(CreateBudgetStates.aux_currency_2)
 async def budget_aux_currency_2_step(message: Message, state: FSMContext) -> None:
     text = (message.text or "").strip()
-    if text.casefold() == "назад":
+    if text.casefold() in {"назад", "главное меню"}:
         await state.set_state(CreateBudgetStates.aux_currency_1)
         await state.update_data(aux_currency_2=None, timezone=None)
         await message.answer(
             "Первая вспомогательная валюта (или пропусти):",
-            reply_markup=build_aux_currency_reply_keyboard(),
+            reply_markup=build_home_reply_keyboard(),
         )
         return
     if text.casefold() == "пропустить":
@@ -358,7 +362,7 @@ async def budget_aux_currency_2_step(message: Message, state: FSMContext) -> Non
         await state.set_state(CreateBudgetStates.timezone)
         await message.answer(
             "Таймзона бюджета (IANA, например Europe/Belgrade):",
-            reply_markup=build_timezone_reply_keyboard(app_settings.default_timezone),
+            reply_markup=build_home_reply_keyboard(),
         )
         return
     aux_currency = text.upper()
@@ -369,18 +373,18 @@ async def budget_aux_currency_2_step(message: Message, state: FSMContext) -> Non
     await state.set_state(CreateBudgetStates.timezone)
     await message.answer(
         "Таймзона бюджета (IANA, например Europe/Belgrade):",
-        reply_markup=build_timezone_reply_keyboard(app_settings.default_timezone),
+        reply_markup=build_home_reply_keyboard(),
     )
 
 
 @router.message(CreateBudgetStates.timezone)
 async def budget_timezone_step(message: Message, state: FSMContext) -> None:
     text = (message.text or "").strip()
-    if text.casefold() == "назад":
+    if text.casefold() in {"назад", "главное меню"}:
         await state.set_state(CreateBudgetStates.aux_currency_2)
         await message.answer(
             "Вторая вспомогательная валюта (или пропусти):",
-            reply_markup=build_aux_currency_reply_keyboard(),
+            reply_markup=build_home_reply_keyboard(),
         )
         return
     if text == f"Оставить {app_settings.default_timezone}":
@@ -453,7 +457,7 @@ async def edit_budget(callback: CallbackQuery, state: FSMContext) -> None:
     await state.set_state(CreateBudgetStates.timezone)
     await callback.message.answer(
         "Таймзона бюджета (IANA, например Europe/Belgrade):",
-        reply_markup=build_timezone_reply_keyboard(app_settings.default_timezone),
+        reply_markup=build_home_reply_keyboard(),
     )
     await _safe_callback_answer(callback)
 
