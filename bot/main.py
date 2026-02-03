@@ -17,7 +17,12 @@ async def main() -> None:
     bot = Bot(token=app_settings.bot_token)
     dp = Dispatcher(storage=MemoryStorage())
 
-    await bot.set_my_commands([BotCommand(command="start", description="Запуск бота")])
+    await bot.set_my_commands(
+        [
+            BotCommand(command="start", description="Обновить"),
+            BotCommand(command="main-menu", description="Home"),
+        ]
+    )
 
     dp.update.middleware(DbSessionMiddleware())
 

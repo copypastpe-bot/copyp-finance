@@ -1,6 +1,7 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, KeyboardButton, ReplyKeyboardMarkup
 
 CANCEL_CALLBACK = "common:cancel"
+HOME_REPLY_TEXT = "🏠 Home"
 
 CREATE_BUDGET_CALLBACK = "onboarding:create_budget"
 JOIN_BUDGET_CALLBACK = "onboarding:join_budget"
@@ -91,10 +92,10 @@ def build_cancel_back_reply_keyboard() -> ReplyKeyboardMarkup:
 
 def build_home_reply_keyboard() -> ReplyKeyboardMarkup:
     return ReplyKeyboardMarkup(
-        keyboard=[[KeyboardButton(text="Главное меню")]],
+        keyboard=[[KeyboardButton(text=HOME_REPLY_TEXT)]],
         resize_keyboard=True,
         one_time_keyboard=True,
-        input_field_placeholder="Главное меню",
+        input_field_placeholder="Home",
     )
 
 

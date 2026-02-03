@@ -18,6 +18,7 @@ from bot.features.onboarding.keyboards import (
     build_confirm_inline_keyboard,
     build_home_reply_keyboard,
     build_invite_confirm_keyboard,
+    HOME_REPLY_TEXT,
 )
 from bot.features.onboarding.states import CreateBudgetStates, JoinBudgetStates
 from core.settings_app import app_settings
@@ -181,7 +182,7 @@ async def cancel_message(message: Message, state: FSMContext) -> None:
         await message.answer("Действие отменено.", reply_markup=ReplyKeyboardRemove())
 
 
-@router.message(F.text.casefold() == "главное меню")
+@router.message(F.text == HOME_REPLY_TEXT)
 async def home_message(message: Message, state: FSMContext) -> None:
     await state.clear()
     await message.answer(build_start_message())
@@ -211,7 +212,7 @@ async def cancel_callback(callback: CallbackQuery, state: FSMContext) -> None:
 
 @router.message(CreateBudgetStates.name)
 async def budget_name_step(message: Message, state: FSMContext) -> None:
-    if (message.text or "").strip().casefold() in {"назад", "главное меню"}:
+    if (message.text or "").strip().casefold() in {"назад", HOME_REPLY_TEXT.casefold()}:
         await state.clear()
         await message.answer(build_start_message())
         await message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
@@ -236,7 +237,7 @@ async def join_budget_token_step(message: Message, state: FSMContext, session: A
         return
     text_raw = message.text or ""
     text = text_raw.strip()
-    if text.casefold() in {"отмена", "назад", "главное меню"} or text.startswith("/start"):
+    if text.casefold() in {"отмена", "назад", HOME_REPLY_TEXT.casefold()} or text.startswith("/start"):
         await state.clear()
         await message.answer(build_start_message())
         await message.answer("Главное меню:", reply_markup=build_main_menu_keyboard())
@@ -298,7 +299,7 @@ async def accept_invite_callback(
 
 @router.message(CreateBudgetStates.base_currency)
 async def budget_base_currency_step(message: Message, state: FSMContext) -> None:
-    if (message.text or "").strip().casefold() in {"назад", "главное меню"}:
+    if (message.text or "").strip().casefold() in {"назад", HOME_REPLY_TEXT.casefold()}:
         await state.set_state(CreateBudgetStates.name)
         await state.update_data(base_currency=None, aux_currency_1=None, aux_currency_2=None, timezone=None)
         await message.answer("Как назовём бюджет?", reply_markup=build_home_reply_keyboard())
@@ -318,7 +319,7 @@ async def budget_base_currency_step(message: Message, state: FSMContext) -> None
 @router.message(CreateBudgetStates.aux_currency_1)
 async def budget_aux_currency_1_step(message: Message, state: FSMContext) -> None:
     text = (message.text or "").strip()
-    if text.casefold() in {"назад", "главное меню"}:
+    if text.casefold() in {"назад", HOME_REPLY_TEXT.casefold()}:
         await state.set_state(CreateBudgetStates.base_currency)
         await state.update_data(aux_currency_1=None, aux_currency_2=None, timezone=None)
         await message.answer(
@@ -349,7 +350,7 @@ async def budget_aux_currency_1_step(message: Message, state: FSMContext) -> Non
 @router.message(CreateBudgetStates.aux_currency_2)
 async def budget_aux_currency_2_step(message: Message, state: FSMContext) -> None:
     text = (message.text or "").strip()
-    if text.casefold() in {"назад", "главное меню"}:
+    if text.casefold() in {"назад", HOME_REPLY_TEXT.casefold()}:
         await state.set_state(CreateBudgetStates.aux_currency_1)
         await state.update_data(aux_currency_2=None, timezone=None)
         await message.answer(
@@ -380,7 +381,7 @@ async def budget_aux_currency_2_step(message: Message, state: FSMContext) -> Non
 @router.message(CreateBudgetStates.timezone)
 async def budget_timezone_step(message: Message, state: FSMContext) -> None:
     text = (message.text or "").strip()
-    if text.casefold() in {"назад", "главное меню"}:
+    if text.casefold() in {"назад", HOME_REPLY_TEXT.casefold()}:
         await state.set_state(CreateBudgetStates.aux_currency_2)
         await message.answer(
             "Вторая вспомогательная валюта (или пропусти):",
